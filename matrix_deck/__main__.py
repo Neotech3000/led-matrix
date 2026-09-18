@@ -1,11 +1,13 @@
-"""CLI entry point for the Framework 16 LED matrix deck."""
+"""CLI entry point for the LED Matrix desktop app."""
 
 from __future__ import annotations
 
 import argparse
 import signal
 import sys
+import threading
 import time
+from pathlib import Path
 
 from matrix_deck.engine import Deck
 from matrix_deck.hardware import (
@@ -16,6 +18,7 @@ from matrix_deck.hardware import (
     warn,
 )
 from matrix_deck.server import make_server
+from matrix_deck.window import open_window, wait_ready
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,6 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--host", default="0.0.0.0", help="Preview server bind address")
     p.add_argument("--port", type=int, default=43173, help="Preview server port")
+    p.add_argument("--gui", action="store_true", help="Open a desktop window (the installed app)")
     p.add_argument("--no-web", action="store_true", help="Drive hardware only, no browser preview")
     p.add_argument("--simulate", action="store_true", help="Ignore hardware and only run the preview")
     p.add_argument("--left", metavar="PATH", help="Serial path for the left matrix")
@@ -40,11 +44,30 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _redirect_gui_logs() -> None:
+    if sys.stderr.isatty():
+        return
+    log_dir = Path.home() / ".local/state"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handle = open(log_dir / "led-matrix.log", "a", encoding="utf-8")
+    sys.stdout = handle
+    sys.stderr = handle
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     if args.list:
         return _list_devices()
+
+    if args.gui:
+        _redirect_gui_logs()
+        if args.host == "0.0.0.0":
+            args.host = "127.0.0.1"
+        preview = f"http://127.0.0.1:{args.port}"
+        if wait_ready(preview, timeout=0.6):
+            open_window(preview)
+            return 0
 
     deck = Deck(fps=args.fps, brightness=args.brightness)
     if args.left_anim != "flappy":
@@ -58,17 +81,20 @@ def main(argv: list[str] | None = None) -> int:
     deck.start()
 
     httpd = None
+    preview = f"http://127.0.0.1:{args.port}"
     if not args.no_web:
-        httpd = make_server(deck, args.host, args.port)
-        preview = f"http://127.0.0.1:{args.port}"
-        print(f"LED Matrix: {preview}")
-        if deck.left_hw or deck.right_hw:
-            print("Driving both modules. Open the page to pick looping animations.")
-        else:
-            print(
-                "No LED matrices found — showing the on-screen simulator.\n"
-                "Plug the two LED modules in beside the keyboard, then run this again."
-            )
+        try:
+            httpd = make_server(deck, args.host, args.port)
+        except OSError:
+            warn(f"port {args.port} is already in use — opening the running app")
+            httpd = None
+        if httpd is not None:
+            threading.Thread(target=httpd.serve_forever, daemon=True, name="led-matrix-http").start()
+            print(f"LED Matrix: {preview}")
+            if deck.left_hw or deck.right_hw:
+                print("Driving both modules.")
+            else:
+                print("No LED matrices found — simulator only until the modules are plugged in.")
 
     stop = False
 
@@ -82,8 +108,15 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGTERM, _handle)
 
     try:
-        if httpd is not None:
-            httpd.serve_forever()
+        if args.gui and not args.no_web:
+            wait_ready(preview)
+            outcome = open_window(preview)
+            if outcome == "opened":
+                while not stop:
+                    time.sleep(0.4)
+        elif httpd is not None and not args.gui:
+            while not stop:
+                time.sleep(0.4)
         else:
             while not stop:
                 time.sleep(0.4)
@@ -91,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         if httpd is not None:
+            httpd.shutdown()
             httpd.server_close()
         deck.stop()
     return 0
@@ -149,9 +183,9 @@ def _list_devices() -> int:
         if dev.location:
             print(f"  usb:     {dev.location}")
         if dev is left:
-            side = "left (Flappy Bird)"
+            side = "left"
         elif dev is right:
-            side = "right (fish tank)"
+            side = "right"
         else:
             side = "unused"
         print(f"  assign:  {side} (use --swap if this is backwards)")
