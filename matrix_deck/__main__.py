@@ -12,7 +12,7 @@ from matrix_deck.hardware import (
     LedMatrix,
     assign_left_right,
     discover_matrices,
-    pyserial_available,
+    friendly_connect_error,
     warn,
 )
 from matrix_deck.server import make_server
@@ -59,7 +59,10 @@ def main(argv: list[str] | None = None) -> int:
         if deck.left_hw or deck.right_hw:
             print("Driving Framework LED matrices. Space / click flaps the bird.")
         else:
-            print("No LED matrices found — running the simulator. Connect modules and restart, or pass --left/--right.")
+            print(
+                "No LED matrices found — showing the on-screen simulator.\n"
+                "Plug the two LED modules in beside the keyboard, then run this again."
+            )
 
     stop = False
 
@@ -88,9 +91,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _attach_hardware(deck: Deck, args) -> None:
-    if not pyserial_available():
-        warn("pyserial is not installed; staying in simulator mode (pip install pyserial)")
-        return
     devices = discover_matrices()
     left_dev, right_dev = assign_left_right(
         devices,
@@ -98,16 +98,8 @@ def _attach_hardware(deck: Deck, args) -> None:
         right_path=args.right,
         swap=args.swap,
     )
-    if args.left and left_dev is None:
-        left_dev_path = args.left
-    else:
-        left_dev_path = left_dev.path if left_dev else None
-    if args.right and right_dev is None:
-        right_dev_path = args.right
-    else:
-        right_dev_path = right_dev.path if right_dev else None
-
-    # Explicit paths win even if discovery missed them (permissions, etc.).
+    left_dev_path = left_dev.path if left_dev else None
+    right_dev_path = right_dev.path if right_dev else None
     if args.left:
         left_dev_path = args.left
     if args.right:
@@ -119,8 +111,8 @@ def _attach_hardware(deck: Deck, args) -> None:
             deck.left_hw.connect()
             deck.left_status = deck.left_hw.path
             print(f"Left  (Flappy Bird): {deck.left_hw.path}")
-        except RuntimeError as exc:
-            warn(str(exc))
+        except (RuntimeError, OSError) as exc:
+            warn(friendly_connect_error(left_dev_path, exc))
             deck.left_hw = None
             deck.left_status = "error"
     if right_dev_path:
@@ -129,19 +121,17 @@ def _attach_hardware(deck: Deck, args) -> None:
             deck.right_hw.connect()
             deck.right_status = deck.right_hw.path
             print(f"Right (Fish tank):   {deck.right_hw.path}")
-        except RuntimeError as exc:
-            warn(str(exc))
+        except (RuntimeError, OSError) as exc:
+            warn(friendly_connect_error(right_dev_path, exc))
             deck.right_hw = None
             deck.right_status = "error"
 
 
 def _list_devices() -> int:
-    if not pyserial_available():
-        warn("pyserial is not installed")
-        return 1
     devices = discover_matrices()
     if not devices:
         print("No Framework LED matrices found (VID 32AC PID 0020).")
+        print("Plug both modules in beside the keyboard, then run this again.")
         return 1
     for i, dev in enumerate(devices):
         print(f"{dev.path}")

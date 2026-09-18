@@ -1,12 +1,12 @@
 [project]
 name = "matrix-deck"
-version = "1.0.0"
+version = "1.0.1"
 description = "Flappy Bird and a fish tank on the Framework Laptop 16 LED matrices"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Matrix Deck" }]
-dependencies = ["pyserial>=3.5"]
+dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
