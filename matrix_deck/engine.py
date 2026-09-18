@@ -1,4 +1,4 @@
-"""Runs Flappy Bird on the left matrix and the fish tank on the right."""
+"""Runs chosen looping animations on the left and right LED matrices."""
 
 from __future__ import annotations
 
@@ -6,9 +6,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 
+from matrix_deck.anim import Animation, catalog_meta, create_animation
 from matrix_deck.canvas import Canvas
-from matrix_deck.fishtank import FishTank
-from matrix_deck.flappy import FlappyBird
 from matrix_deck.hardware import LedMatrix
 
 
@@ -16,8 +15,10 @@ from matrix_deck.hardware import LedMatrix
 class Deck:
     fps: float = 20.0
     brightness: int = 180
-    flappy: FlappyBird = field(default_factory=FlappyBird)
-    tank: FishTank = field(default_factory=FishTank)
+    left_id: str = "flappy"
+    right_id: str = "fishtank"
+    left_anim: Animation = field(default_factory=lambda: create_animation("flappy"))
+    right_anim: Animation = field(default_factory=lambda: create_animation("fishtank"))
     left_canvas: Canvas = field(default_factory=Canvas)
     right_canvas: Canvas = field(default_factory=Canvas)
     left_hw: LedMatrix | None = None
@@ -32,7 +33,7 @@ class Deck:
         if self._thread and self._thread.is_alive():
             return
         self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="matrix-deck", daemon=True)
+        self._thread = threading.Thread(target=self._loop, name="led-matrix", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
@@ -42,11 +43,26 @@ class Deck:
             self._thread = None
         self._sleep_hw()
 
-    def flap(self) -> None:
+    def set_animation(self, side: str, anim_id: str) -> None:
+        anim = create_animation(anim_id)
         with self._lock:
-            if not self.flappy.alive:
-                self.flappy.reset()
-            self.flappy.flap(manual=True)
+            if side == "right":
+                self.right_id = anim.id
+                self.right_anim = anim
+            else:
+                self.left_id = anim.id
+                self.left_anim = anim
+
+    def click(self, side: str, x: int = 0, y: int = 0, erase: bool = False) -> None:
+        with self._lock:
+            anim = self.right_anim if side == "right" else self.left_anim
+            anim.click(x, y, erase)
+
+    def flap(self) -> None:
+        self.click("left")
+        with self._lock:
+            if self.right_anim.id == "flappy":
+                self.right_anim.click()
 
     def set_brightness(self, value: int) -> None:
         value = max(0, min(255, int(value)))
@@ -61,15 +77,22 @@ class Deck:
 
     def snapshot(self) -> dict:
         with self._lock:
+            left_info = self.left_anim.info()
+            right_info = self.right_anim.info()
+            score_info = left_info if self.left_id == "flappy" else right_info if self.right_id == "flappy" else {}
             return {
                 "width": 9,
                 "height": 34,
                 "left": self.left_canvas.snapshot(),
                 "right": self.right_canvas.snapshot(),
-                "score": self.flappy.score,
-                "best": self.flappy.best,
-                "alive": self.flappy.alive,
-                "auto": self.flappy.auto,
+                "left_anim": self.left_id,
+                "right_anim": self.right_id,
+                "catalog": catalog_meta(),
+                "info": {"left": left_info, "right": right_info},
+                "score": score_info.get("score", 0),
+                "best": score_info.get("best", 0),
+                "alive": score_info.get("alive", True),
+                "auto": score_info.get("auto", True),
                 "brightness": self.brightness,
                 "hardware": {
                     "left": self.left_status,
@@ -85,8 +108,8 @@ class Deck:
             dt = now - last
             last = now
             with self._lock:
-                self.flappy.step(dt, self.left_canvas)
-                self.tank.step(dt, self.right_canvas)
+                self.left_anim.step(dt, self.left_canvas)
+                self.right_anim.step(dt, self.right_canvas)
                 left_pixels = bytes(self.left_canvas.pixels)
                 right_pixels = bytes(self.right_canvas.pixels)
             self._push(left_pixels, right_pixels)

@@ -20,8 +20,8 @@ from matrix_deck.server import make_server
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="matrix-deck",
-        description="Play Flappy Bird on the left Framework LED matrix and a fish tank on the right.",
+        prog="led-matrix",
+        description="LED Matrix — control the Framework Laptop 16 LED panels.",
     )
     p.add_argument("--host", default="0.0.0.0", help="Preview server bind address")
     p.add_argument("--port", type=int, default=43173, help="Preview server port")
@@ -34,6 +34,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--flip-right", action="store_true", help="Rotate the right matrix 180°")
     p.add_argument("--fps", type=float, default=20.0, help="Animation frame rate")
     p.add_argument("--brightness", type=int, default=180, help="LED brightness 0–255")
+    p.add_argument("--left-anim", default="flappy", help="Animation id for the left module")
+    p.add_argument("--right-anim", default="fishtank", help="Animation id for the right module")
     p.add_argument("--list", action="store_true", help="List detected LED matrices and exit")
     return p
 
@@ -45,6 +47,10 @@ def main(argv: list[str] | None = None) -> int:
         return _list_devices()
 
     deck = Deck(fps=args.fps, brightness=args.brightness)
+    if args.left_anim != "flappy":
+        deck.set_animation("left", args.left_anim)
+    if args.right_anim != "fishtank":
+        deck.set_animation("right", args.right_anim)
 
     if not args.simulate:
         _attach_hardware(deck, args)
@@ -55,9 +61,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_web:
         httpd = make_server(deck, args.host, args.port)
         preview = f"http://127.0.0.1:{args.port}"
-        print(f"Preview: {preview}")
+        print(f"LED Matrix: {preview}")
         if deck.left_hw or deck.right_hw:
-            print("Driving Framework LED matrices. Space / click flaps the bird.")
+            print("Driving both modules. Open the page to pick looping animations.")
         else:
             print(
                 "No LED matrices found — showing the on-screen simulator.\n"
@@ -110,7 +116,7 @@ def _attach_hardware(deck: Deck, args) -> None:
         try:
             deck.left_hw.connect()
             deck.left_status = deck.left_hw.path
-            print(f"Left  (Flappy Bird): {deck.left_hw.path}")
+            print(f"Left  ({deck.left_anim.name}): {deck.left_hw.path}")
         except (RuntimeError, OSError) as exc:
             warn(friendly_connect_error(left_dev_path, exc))
             deck.left_hw = None
@@ -120,7 +126,7 @@ def _attach_hardware(deck: Deck, args) -> None:
         try:
             deck.right_hw.connect()
             deck.right_status = deck.right_hw.path
-            print(f"Right (Fish tank):   {deck.right_hw.path}")
+            print(f"Right ({deck.right_anim.name}): {deck.right_hw.path}")
         except (RuntimeError, OSError) as exc:
             warn(friendly_connect_error(right_dev_path, exc))
             deck.right_hw = None

@@ -1,22 +1,45 @@
 import unittest
 
+from matrix_deck.anim import catalog_meta, create_animation
+from matrix_deck.canvas import Canvas
 from matrix_deck.engine import Deck
 from matrix_deck.server import WEB_ROOT, make_server
 
 
 class EngineTests(unittest.TestCase):
-    def test_snapshot_shape(self):
+    def test_snapshot_includes_catalog(self):
         deck = Deck(fps=20)
-        deck.flappy.step(0.05, deck.left_canvas)
-        deck.tank.step(0.05, deck.right_canvas)
+        deck.left_anim.step(0.05, deck.left_canvas)
+        deck.right_anim.step(0.05, deck.right_canvas)
         snap = deck.snapshot()
         self.assertEqual(len(snap["left"]), 9 * 34)
         self.assertEqual(len(snap["right"]), 9 * 34)
-        self.assertIn("score", snap)
-        self.assertTrue(snap["hardware"]["left"])
+        ids = [item["id"] for item in snap["catalog"]]
+        self.assertIn("flappy", ids)
+        self.assertIn("fishtank", ids)
+        self.assertEqual(snap["left_anim"], "flappy")
+        self.assertEqual(snap["right_anim"], "fishtank")
+
+    def test_can_switch_animations(self):
+        deck = Deck(fps=20)
+        deck.set_animation("left", "fire")
+        deck.set_animation("right", "warp")
+        self.assertEqual(deck.left_id, "fire")
+        self.assertEqual(deck.right_id, "warp")
+        deck.left_anim.step(0.05, deck.left_canvas)
+        self.assertGreater(sum(deck.left_canvas.pixels), 0)
+
+    def test_every_catalog_animation_steps(self):
+        canvas = Canvas()
+        for item in catalog_meta():
+            anim = create_animation(item["id"])
+            anim.step(0.05, canvas)
+            anim.step(0.05, canvas)
+            self.assertEqual(item["id"], anim.id)
 
     def test_web_assets_exist(self):
-        self.assertTrue((WEB_ROOT / "index.html").is_file())
+        html = (WEB_ROOT / "index.html").read_text()
+        self.assertIn("LED Matrix", html)
         self.assertTrue((WEB_ROOT / "app.js").is_file())
         self.assertTrue((WEB_ROOT / "style.css").is_file())
 

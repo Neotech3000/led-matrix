@@ -3,81 +3,65 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Matrix Deck — Framework Laptop 16</title>
+    <title>LED Matrix</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <div class="bg-grain"></div>
     <header class="top">
       <div class="brand">
-        <span class="mark"></span>
+        <span class="mark" aria-hidden="true"></span>
         <div>
-          <h1>Matrix Deck</h1>
-          <p>Framework Laptop 16 LED matrices</p>
+          <h1>LED Matrix</h1>
+          <p>Framework Laptop 16 · 9×34 · greyscale</p>
         </div>
       </div>
-      <div class="status" id="status">
+      <div class="status">
         <span class="pill" id="left-pill">Left · connecting</span>
         <span class="pill" id="right-pill">Right · connecting</span>
       </div>
     </header>
 
-    <main class="deck">
-      <section class="module left-mod">
-        <div class="module-meta">
-          <h2>Left</h2>
-          <p>Flappy Bird</p>
+    <section class="stage">
+      <article class="module" data-side="left">
+        <div class="module-head">
+          <div>
+            <h2>Left</h2>
+            <p id="left-name">Flappy Bird</p>
+          </div>
+          <button type="button" class="side-btn active" data-focus="left">Play here</button>
         </div>
-        <button type="button" class="bezel" id="flap-target" aria-label="Flap">
+        <button type="button" class="bezel" id="left-bezel" data-side="left" aria-label="Left LED matrix">
           <canvas id="left" width="150" height="520"></canvas>
         </button>
-        <div class="hud">
-          <div>
-            <span class="label">Score</span>
-            <strong id="score">0</strong>
-          </div>
-          <div>
-            <span class="label">Best</span>
-            <strong id="best">0</strong>
-          </div>
-          <div>
-            <span class="label">Pilot</span>
-            <strong id="pilot">AUTO</strong>
-          </div>
-        </div>
-        <p class="hint">Space, click, or tap the left matrix to flap</p>
-      </section>
+        <div class="hud" id="left-hud"></div>
+      </article>
 
-      <section class="keyboard" aria-hidden="true">
-        <div class="kb-lid"></div>
-        <div class="kb-keys" id="keys"></div>
-        <div class="row space">
-          <span class="spacebar">space to flap</span>
+      <article class="module" data-side="right">
+        <div class="module-head">
+          <div>
+            <h2>Right</h2>
+            <p id="right-name">Fish tank</p>
+          </div>
+          <button type="button" class="side-btn" data-focus="right">Play here</button>
         </div>
-        <div class="trackpad"></div>
-      </section>
-
-      <section class="module right-mod">
-        <div class="module-meta">
-          <h2>Right</h2>
-          <p>Fish tank</p>
-        </div>
-        <div class="bezel static">
+        <button type="button" class="bezel" id="right-bezel" data-side="right" aria-label="Right LED matrix">
           <canvas id="right" width="150" height="520"></canvas>
-        </div>
-        <div class="hud tank-hud">
-          <p>Seaweed, a jellyfish, a crab, and a school of fish in 306 white LEDs.</p>
-        </div>
-      </section>
-    </main>
+        </button>
+        <div class="hud" id="right-hud"></div>
+      </article>
+    </section>
 
-    <footer class="bar">
-      <label class="bright">
-        Brightness
-        <input id="brightness" type="range" min="10" max="255" value="180" />
-      </label>
-      <p class="foot">Omarchy · USB CDC 115200 · 9×34 greyscale</p>
-    </footer>
+    <section class="controls">
+      <div class="control-row">
+        <p class="assign">Click an animation to run it on the <strong id="focus-label">left</strong> module. It loops until you pick another.</p>
+        <label class="bright">
+          Brightness
+          <input id="brightness" type="range" min="10" max="255" value="180" />
+        </label>
+      </div>
+      <div class="library" id="library"></div>
+    </section>
+
     <script src="/app.js"></script>
   </body>
 </html>

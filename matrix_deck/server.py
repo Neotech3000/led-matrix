@@ -1,4 +1,4 @@
-"""Local preview server that mirrors both LED matrices in the browser."""
+"""LED Matrix control app — live preview plus animation picker."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from matrix_deck.anim import catalog_meta
 from matrix_deck.engine import Deck
 
 WEB_ROOT = Path(__file__).resolve().parent / "web"
@@ -24,10 +25,14 @@ class DeckHandler(SimpleHTTPRequestHandler):
         super().log_message(format, *args)
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path.split("?", 1)[0] == "/api/frame":
+        path = self.path.split("?", 1)[0]
+        if path == "/api/frame":
             self._json(200, self.deck.snapshot())
             return
-        if self.path.split("?", 1)[0] == "/api/health":
+        if path == "/api/animations":
+            self._json(200, {"animations": catalog_meta()})
+            return
+        if path == "/api/health":
             self._json(200, {"ok": True})
             return
         super().do_GET()
@@ -36,15 +41,38 @@ class DeckHandler(SimpleHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         length = int(self.headers.get("Content-Length", "0") or 0)
         raw = self.rfile.read(length) if length else b""
+        payload: dict = {}
+        if raw:
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                self._json(400, {"ok": False, "error": "invalid json"})
+                return
+        if path == "/api/animation":
+            side = str(payload.get("side", "left"))
+            anim_id = str(payload.get("id", "flappy"))
+            if side not in ("left", "right"):
+                self._json(400, {"ok": False, "error": "side must be left or right"})
+                return
+            self.deck.set_animation(side, anim_id)
+            self._json(200, {"ok": True, "side": side, "id": anim_id})
+            return
+        if path == "/api/click":
+            side = str(payload.get("side", "left"))
+            x = int(payload.get("x", 0))
+            y = int(payload.get("y", 0))
+            erase = bool(payload.get("erase", False))
+            self.deck.click(side, x, y, erase)
+            self._json(200, {"ok": True})
+            return
         if path == "/api/flap":
             self.deck.flap()
-            self._json(200, {"ok": True, **_score(self.deck)})
+            self._json(200, {"ok": True})
             return
         if path == "/api/brightness":
             try:
-                payload = json.loads(raw.decode("utf-8") or "{}")
                 self.deck.set_brightness(int(payload.get("value", self.deck.brightness)))
-            except (ValueError, json.JSONDecodeError):
+            except (TypeError, ValueError):
                 self._json(400, {"ok": False, "error": "invalid brightness"})
                 return
             self._json(200, {"ok": True, "brightness": self.deck.brightness})
@@ -59,11 +87,6 @@ class DeckHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
-
-
-def _score(deck: Deck) -> dict:
-    snap = deck.snapshot()
-    return {"score": snap["score"], "best": snap["best"], "alive": snap["alive"]}
 
 
 def make_server(deck: Deck, host: str, port: int) -> ThreadingHTTPServer:
