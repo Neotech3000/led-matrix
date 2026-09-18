@@ -12,11 +12,11 @@ class HardwareTests(unittest.TestCase):
         a = MatrixDevice(path="/dev/ttyACM0", location="usb-0:3")
         b = MatrixDevice(path="/dev/ttyACM1", location="usb-0:4")
         left, right = assign_left_right([a, b])
-        self.assertIs(left, a)
-        self.assertIs(right, b)
-        left, right = assign_left_right([a, b], swap=True)
         self.assertIs(left, b)
         self.assertIs(right, a)
+        left, right = assign_left_right([a, b], swap=True)
+        self.assertIs(left, a)
+        self.assertIs(right, b)
 
     def test_permission_message_is_plain_english(self):
         err = OSError(13, "Permission denied")

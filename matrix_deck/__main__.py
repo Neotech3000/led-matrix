@@ -133,7 +133,8 @@ def _list_devices() -> int:
         print("No Framework LED matrices found (VID 32AC PID 0020).")
         print("Plug both modules in beside the keyboard, then run this again.")
         return 1
-    for i, dev in enumerate(devices):
+    left, right = assign_left_right(devices)
+    for dev in devices:
         print(f"{dev.path}")
         if dev.product:
             print(f"  product: {dev.product}")
@@ -141,7 +142,12 @@ def _list_devices() -> int:
             print(f"  serial:  {dev.serial_number}")
         if dev.location:
             print(f"  usb:     {dev.location}")
-        side = "left" if i == 0 else "right" if i == 1 else f"#{i}"
+        if dev is left:
+            side = "left (Flappy Bird)"
+        elif dev is right:
+            side = "right (fish tank)"
+        else:
+            side = "unused"
         print(f"  assign:  {side} (use --swap if this is backwards)")
     return 0
 

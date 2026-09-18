@@ -153,10 +153,11 @@ def assign_left_right(
     right = by_path.get(_normalize(right_path)) if right_path else None
 
     unused = [d for d in devices if d is not left and d is not right]
-    if left is None and unused:
-        left = unused.pop(0)
+    # On Framework 16 the first ACM/by-path node is usually the right well.
     if right is None and unused:
         right = unused.pop(0)
+    if left is None and unused:
+        left = unused.pop(0)
 
     if swap:
         left, right = right, left
