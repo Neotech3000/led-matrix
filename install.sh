@@ -4,6 +4,16 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 BIN="$HOME/.local/bin"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Python 3.11 or newer is required. Install python3 and run this again."
+  exit 1
+fi
+python3 - <<'PY'
+import sys
+if sys.version_info < (3, 11):
+    raise SystemExit(f"Python 3.11+ required, found {sys.version.split()[0]}")
+PY
 APPS="$HOME/.local/share/applications"
 ICONS="$HOME/.local/share/icons/hicolor/scalable/apps"
 
@@ -21,7 +31,7 @@ cp "$ROOT/packaging/led-matrix.svg" "$ICONS/led-matrix.svg"
 cat > "$APPS/led-matrix.desktop" <<DESK
 [Desktop Entry]
 Type=Application
-Version=1.2
+Version=1.3
 Name=LED Matrix
 Comment=Control the Framework Laptop 16 LED matrices
 Exec=$BIN/led-matrix

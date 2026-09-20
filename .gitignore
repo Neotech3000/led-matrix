@@ -9,3 +9,5 @@ dist/
 build/
 .DS_Store
 *.pyc
+*.log
+.python-version

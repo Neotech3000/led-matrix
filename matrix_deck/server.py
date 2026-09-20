@@ -59,10 +59,39 @@ class DeckHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/click":
             side = str(payload.get("side", "left"))
-            x = int(payload.get("x", 0))
-            y = int(payload.get("y", 0))
+            if side not in ("left", "right"):
+                self._json(400, {"ok": False, "error": "side must be left or right"})
+                return
+            try:
+                x = int(payload.get("x", 0))
+                y = int(payload.get("y", 0))
+            except (TypeError, ValueError):
+                self._json(400, {"ok": False, "error": "invalid coordinates"})
+                return
             erase = bool(payload.get("erase", False))
             self.deck.click(side, x, y, erase)
+            self._json(200, {"ok": True})
+            return
+        if path == "/api/stroke":
+            side = str(payload.get("side", "left"))
+            if side not in ("left", "right"):
+                self._json(400, {"ok": False, "error": "side must be left or right"})
+                return
+            points = payload.get("points") or []
+            if not isinstance(points, list) or len(points) > 128:
+                self._json(400, {"ok": False, "error": "points must be a list of at most 128 pairs"})
+                return
+            erase = bool(payload.get("erase", False))
+            self.deck.stroke(side, points, erase)
+            self._json(200, {"ok": True})
+            return
+        if path == "/api/key":
+            side = str(payload.get("side", "left"))
+            if side not in ("left", "right"):
+                self._json(400, {"ok": False, "error": "side must be left or right"})
+                return
+            code = str(payload.get("code", ""))
+            self.deck.key(side, code)
             self._json(200, {"ok": True})
             return
         if path == "/api/flap":

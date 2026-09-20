@@ -17,8 +17,12 @@ class EngineTests(unittest.TestCase):
         ids = [item["id"] for item in snap["catalog"]]
         self.assertIn("flappy", ids)
         self.assertIn("fishtank", ids)
+        self.assertIn("sketch", ids)
         self.assertEqual(snap["left_anim"], "flappy")
         self.assertEqual(snap["right_anim"], "fishtank")
+        kinds = {item["id"]: item["kind"] for item in snap["catalog"]}
+        self.assertEqual(kinds["flappy"], "game")
+        self.assertEqual(kinds["sketch"], "sketch")
 
     def test_can_switch_animations(self):
         deck = Deck(fps=20)
@@ -40,7 +44,10 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertTrue((WEB_ROOT / "app.js").is_file())
+        self.assertNotIn("<button type=\"button\" class=\"bezel\"", html)
+        js = (WEB_ROOT / "app.js").read_text()
+        self.assertIn("/api/stroke", js)
+        self.assertIn("/api/key", js)
         self.assertTrue((WEB_ROOT / "style.css").is_file())
 
     def test_server_binds(self):

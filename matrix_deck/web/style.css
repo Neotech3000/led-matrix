@@ -91,17 +91,26 @@ h1 { margin: 0; font-size: 1.2rem; letter-spacing: 0.02em; }
 }
 
 .bezel {
-  appearance: none;
   border: 1px solid #2c313a;
   background: linear-gradient(180deg, #1a1d23, #0c0d10);
   border-radius: 18px;
   padding: 14px 12px;
-  cursor: pointer;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 16px 36px rgba(0,0,0,0.35);
 }
 .bezel:focus-visible { outline: 2px solid var(--orange); }
 .module.focused .bezel { border-color: rgba(255, 116, 79, 0.55); }
-canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  pointer-events: none;
+}
 
 .hud {
   min-height: 1.2em;
@@ -134,7 +143,6 @@ input[type="range"] { accent-color: var(--orange); width: 160px; }
 }
 
 .card {
-  appearance: none;
   text-align: left;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -142,7 +150,7 @@ input[type="range"] { accent-color: var(--orange); width: 160px; }
   border-radius: 14px;
   padding: 12px 12px 11px;
   cursor: pointer;
-  min-height: 92px;
+  min-height: 108px;
 }
 .card:hover { border-color: rgba(255, 116, 79, 0.35); }
 .card.active {
@@ -151,8 +159,10 @@ input[type="range"] { accent-color: var(--orange); width: 160px; }
 }
 .card h3 { margin: 0 0 6px; font-size: 0.92rem; }
 .card p { margin: 0; color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
-.badges { display: flex; gap: 6px; margin-top: 8px; }
+.badges { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
 .badge {
+  appearance: none;
+  font: inherit;
   font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -160,8 +170,18 @@ input[type="range"] { accent-color: var(--orange); width: 160px; }
   padding: 2px 7px;
   border: 1px solid var(--line);
   color: var(--muted);
+  background: transparent;
 }
+.badge.assign { cursor: pointer; }
+.badge.assign:hover { border-color: rgba(255, 116, 79, 0.55); color: var(--ink); }
 .badge.on { color: var(--orange); border-color: rgba(255, 116, 79, 0.5); }
+.badge.kind { margin-right: auto; }
+.foot {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
 
 @media (max-width: 720px) {
   .stage { grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 12px; }

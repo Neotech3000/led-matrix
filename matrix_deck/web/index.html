@@ -30,9 +30,16 @@
           </div>
           <button type="button" class="side-btn active" data-focus="left">Play here</button>
         </div>
-        <button type="button" class="bezel" id="left-bezel" data-side="left" aria-label="Left LED matrix">
+        <div
+          class="bezel"
+          id="left-bezel"
+          data-side="left"
+          role="application"
+          aria-label="Left LED matrix"
+          tabindex="0"
+        >
           <canvas id="left" width="150" height="520"></canvas>
-        </button>
+        </div>
         <div class="hud" id="left-hud"></div>
       </article>
 
@@ -44,22 +51,37 @@
           </div>
           <button type="button" class="side-btn" data-focus="right">Play here</button>
         </div>
-        <button type="button" class="bezel" id="right-bezel" data-side="right" aria-label="Right LED matrix">
+        <div
+          class="bezel"
+          id="right-bezel"
+          data-side="right"
+          role="application"
+          aria-label="Right LED matrix"
+          tabindex="0"
+        >
           <canvas id="right" width="150" height="520"></canvas>
-        </button>
+        </div>
         <div class="hud" id="right-hud"></div>
       </article>
     </section>
 
     <section class="controls">
       <div class="control-row">
-        <p class="assign">Click an animation to run it on the <strong id="focus-label">left</strong> module. It loops until you pick another.</p>
+        <p class="assign">
+          Click a card to run it on the <strong id="focus-label">left</strong> module,
+          or tap the <strong>L</strong> / <strong>R</strong> badges. Games use the
+          focused well — drag and type on that side.
+        </p>
         <label class="bright">
           Brightness
           <input id="brightness" type="range" min="10" max="255" value="180" />
         </label>
       </div>
       <div class="library" id="library"></div>
+      <p class="foot">
+        Not an official Framework product. MIT licensed — built for people who
+        just bought a Framework 16 and want the LED wells to do something.
+      </p>
     </section>
 
     <script src="/app.js"></script>

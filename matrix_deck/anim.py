@@ -19,6 +19,22 @@ class Animation:
     def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
         return None
 
+    def stroke(self, points, erase: bool = False) -> None:
+        from matrix_deck.canvas import line_cells
+
+        prev = None
+        for point in points:
+            x, y = int(point[0]), int(point[1])
+            if prev is None:
+                self.click(x, y, erase)
+            else:
+                for cx, cy in line_cells(prev[0], prev[1], x, y):
+                    self.click(cx, cy, erase)
+            prev = (x, y)
+
+    def key(self, code: str) -> None:
+        return None
+
     def info(self) -> dict:
         return {}
 
@@ -115,6 +131,15 @@ class FlappyAnim(Animation):
         if not self.game.alive:
             self.game.reset()
         self.game.flap(manual=True)
+
+    def stroke(self, points, erase: bool = False) -> None:
+        # A drag should flap once, not once per LED the pointer crosses.
+        if points:
+            self.click()
+
+    def key(self, code: str) -> None:
+        if code in {"Space", "ArrowUp", "KeyW", "KeyK"}:
+            self.click()
 
     def info(self) -> dict:
         return {

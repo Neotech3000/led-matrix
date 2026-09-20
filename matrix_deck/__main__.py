@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="led-matrix",
         description="LED Matrix — control the Framework Laptop 16 LED panels.",
     )
-    p.add_argument("--host", default="0.0.0.0", help="Preview server bind address")
+    p.add_argument("--host", default="127.0.0.1", help="Preview server bind address (keep 127.0.0.1 unless you mean to share control on the LAN)")
     p.add_argument("--port", type=int, default=43173, help="Preview server port")
     p.add_argument("--gui", action="store_true", help="Open a desktop window (the installed app)")
     p.add_argument("--no-web", action="store_true", help="Drive hardware only, no browser preview")

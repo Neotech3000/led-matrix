@@ -58,6 +58,27 @@ class Deck:
             anim = self.right_anim if side == "right" else self.left_anim
             anim.click(x, y, erase)
 
+    def stroke(self, side: str, points, erase: bool = False) -> None:
+        cleaned = []
+        for point in points or ():
+            try:
+                cleaned.append((int(point[0]), int(point[1])))
+            except (TypeError, ValueError, IndexError):
+                continue
+        if not cleaned:
+            return
+        with self._lock:
+            anim = self.right_anim if side == "right" else self.left_anim
+            anim.stroke(cleaned, erase)
+
+    def key(self, side: str, code: str) -> None:
+        code = str(code or "")
+        if not code:
+            return
+        with self._lock:
+            anim = self.right_anim if side == "right" else self.left_anim
+            anim.key(code)
+
     def flap(self) -> None:
         self.click("left")
         with self._lock:

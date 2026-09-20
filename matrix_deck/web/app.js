@@ -1,7 +1,25 @@
 const WIDTH = 9;
 const HEIGHT = 34;
+const DRAG_IDS = new Set(["sketch", "life", "pong", "snake"]);
+const IGNORE_KEYS = new Set([
+  "ShiftLeft",
+  "ShiftRight",
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "MetaLeft",
+  "MetaRight",
+  "Tab",
+  "CapsLock",
+  "NumLock",
+  "ScrollLock",
+]);
+
 const leftCanvas = document.getElementById("left");
 const rightCanvas = document.getElementById("right");
+const leftBezel = document.getElementById("left-bezel");
+const rightBezel = document.getElementById("right-bezel");
 const leftCtx = leftCanvas.getContext("2d");
 const rightCtx = rightCanvas.getContext("2d");
 const leftPill = document.getElementById("left-pill");
@@ -16,6 +34,8 @@ const focusLabel = document.getElementById("focus-label");
 
 let catalog = [];
 let focus = "left";
+let drawing = null;
+let inputQueue = Promise.resolve();
 let state = {
   left_anim: "flappy",
   right_anim: "fishtank",
@@ -82,9 +102,23 @@ function hudText(side, data) {
   const item = catalog.find((c) => c.id === id);
   if (id === "flappy") {
     const pilot = info.alive ? (info.auto ? "AUTO" : "YOU") : "CRASH";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click or space to flap`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, space, or ↑ to flap`;
   }
-  if (id === "sketch") return "Click a LED to draw. Hold Shift to erase.";
+  if (id === "snake") {
+    const pilot = info.alive ? (info.auto ? "AUTO until you steer" : "YOU") : "DEAD";
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · arrows or WASD`;
+  }
+  if (id === "pong") {
+    const pilot = info.auto ? "AUTO" : "YOU";
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · drag or A/D to move your paddle`;
+  }
+  if (id === "life") {
+    const mode = info.paused ? "PAUSED" : "LIVE";
+    return `Gen ${info.gen ?? 0} · ${mode} · drag to paint, Shift-drag erases, R reseeds, P pauses`;
+  }
+  if (id === "sketch") {
+    return "Drag to draw. Shift-drag or right-drag erases. C / Esc / Delete clears.";
+  }
   return item ? item.description : "";
 }
 
@@ -110,36 +144,72 @@ function maybeRenderLibrary() {
   renderLibrary();
 }
 
+function kindLabel(kind) {
+  if (kind === "game") return "Game";
+  if (kind === "sketch") return "Draw";
+  return "Loop";
+}
+
 function renderLibrary() {
   if (!catalog.length) return;
   libraryEl.innerHTML = "";
   for (const item of catalog) {
-    const card = document.createElement("button");
-    card.type = "button";
+    const card = document.createElement("article");
     card.className = "card";
     const onFocus = state[`${focus}_anim`] === item.id;
     if (onFocus) card.classList.add("active");
     const leftOn = state.left_anim === item.id;
     const rightOn = state.right_anim === item.id;
-    card.innerHTML = `
-      <h3>${item.name}</h3>
-      <p>${item.description}</p>
-      <div class="badges">
-        <span class="badge ${leftOn ? "on" : ""}">L</span>
-        <span class="badge ${rightOn ? "on" : ""}">R</span>
-      </div>`;
-    card.addEventListener("click", () => choose(item.id));
+
+    const title = document.createElement("h3");
+    title.textContent = item.name;
+    const blurb = document.createElement("p");
+    blurb.textContent = item.description;
+    const badges = document.createElement("div");
+    badges.className = "badges";
+
+    const kind = document.createElement("span");
+    kind.className = "badge kind";
+    kind.textContent = kindLabel(item.kind);
+    badges.appendChild(kind);
+
+    for (const [side, on, label] of [
+      ["left", leftOn, "L"],
+      ["right", rightOn, "R"],
+    ]) {
+      const badge = document.createElement("button");
+      badge.type = "button";
+      badge.className = `badge assign ${on ? "on" : ""}`;
+      badge.textContent = label;
+      badge.title = `Run ${item.name} on the ${side} module`;
+      badge.addEventListener("click", (event) => {
+        event.stopPropagation();
+        assign(side, item.id);
+      });
+      badges.appendChild(badge);
+    }
+
+    card.append(title, blurb, badges);
+    card.addEventListener("click", () => assign(focus, item.id));
     libraryEl.appendChild(card);
   }
 }
 
-async function choose(id) {
-  await fetch("/api/animation", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ side: focus, id }),
-  });
-  state[`${focus}_anim`] = id;
+function post(path, body) {
+  inputQueue = inputQueue.then(() =>
+    fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => {})
+  );
+  return inputQueue;
+}
+
+async function assign(side, id) {
+  setFocus(side);
+  await post("/api/animation", { side, id });
+  state[`${side}_anim`] = id;
   lastLibKey = "";
   maybeRenderLibrary();
 }
@@ -160,16 +230,50 @@ function ledFromEvent(canvas, event) {
   };
 }
 
-async function onMatrixPointer(side, event) {
+function currentAnim(side) {
+  return state[`${side}_anim`];
+}
+
+function onPointerDown(side, event) {
+  if (event.button === 1) return;
   event.preventDefault();
   setFocus(side);
+  const bezel = side === "right" ? rightBezel : leftBezel;
   const canvas = side === "right" ? rightCanvas : leftCanvas;
-  const { x, y } = ledFromEvent(canvas, event);
-  await fetch("/api/click", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ side, x, y, erase: event.shiftKey || event.button === 2 }),
+  const cell = ledFromEvent(canvas, event);
+  const erase = event.shiftKey || event.button === 2;
+  drawing = { side, last: cell, erase, pointerId: event.pointerId };
+  try {
+    bezel.setPointerCapture(event.pointerId);
+  } catch {
+    /* older browsers still get pointermove on the bezel */
+  }
+  post("/api/stroke", { side, points: [[cell.x, cell.y]], erase });
+}
+
+function onPointerMove(side, event) {
+  if (!drawing || drawing.side !== side) return;
+  if (drawing.pointerId !== event.pointerId) return;
+  event.preventDefault();
+  if (!DRAG_IDS.has(currentAnim(side))) return;
+  const canvas = side === "right" ? rightCanvas : leftCanvas;
+  const cell = ledFromEvent(canvas, event);
+  if (cell.x === drawing.last.x && cell.y === drawing.last.y) return;
+  post("/api/stroke", {
+    side,
+    points: [
+      [drawing.last.x, drawing.last.y],
+      [cell.x, cell.y],
+    ],
+    erase: drawing.erase || event.shiftKey,
   });
+  drawing.last = cell;
+}
+
+function onPointerUp(event) {
+  if (!drawing) return;
+  if (event.pointerId !== drawing.pointerId) return;
+  drawing = null;
 }
 
 async function tick() {
@@ -205,28 +309,37 @@ document.querySelectorAll(".side-btn").forEach((btn) => {
   btn.addEventListener("click", () => setFocus(btn.dataset.focus));
 });
 
-leftCanvas.addEventListener("pointerdown", (event) => onMatrixPointer("left", event));
-rightCanvas.addEventListener("pointerdown", (event) => onMatrixPointer("right", event));
-document.getElementById("left-bezel").addEventListener("contextmenu", (e) => e.preventDefault());
-document.getElementById("right-bezel").addEventListener("contextmenu", (e) => e.preventDefault());
+for (const [side, bezel] of [
+  ["left", leftBezel],
+  ["right", rightBezel],
+]) {
+  bezel.addEventListener("pointerdown", (event) => onPointerDown(side, event));
+  bezel.addEventListener("pointermove", (event) => onPointerMove(side, event));
+  bezel.addEventListener("pointerup", onPointerUp);
+  bezel.addEventListener("pointercancel", onPointerUp);
+  bezel.addEventListener("contextmenu", (event) => event.preventDefault());
+  bezel.addEventListener("focus", () => setFocus(side));
+}
 
 window.addEventListener("keydown", (event) => {
-  if (event.code === "Space" || event.key === " ") {
-    event.preventDefault();
-    fetch("/api/click", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ side: focus }),
-    });
+  if (event.target && ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) {
+    return;
   }
+  if (IGNORE_KEYS.has(event.code)) return;
+  if (
+    event.code === "Space" ||
+    event.code.startsWith("Arrow") ||
+    event.code === "Escape" ||
+    event.code === "Delete" ||
+    event.code === "Backspace"
+  ) {
+    event.preventDefault();
+  }
+  post("/api/key", { side: focus, code: event.code });
 });
 
-brightnessEl.addEventListener("input", async () => {
-  await fetch("/api/brightness", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ value: Number(brightnessEl.value) }),
-  });
+brightnessEl.addEventListener("input", () => {
+  post("/api/brightness", { value: Number(brightnessEl.value) });
 });
 
 setFocus("left");

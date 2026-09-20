@@ -120,13 +120,15 @@ class Plasma(Animation):
 class GameOfLife(Animation):
     id = "life"
     name = "Game of Life"
-    description = "Cells live, die, and loop. Reseeds when the dish goes still."
+    description = "Cells live and die. Drag to paint life, Shift-drag to erase, R reseeds."
+    kind = "game"
 
     def __init__(self, rng: random.Random | None = None) -> None:
         self.rng = rng or random.Random()
         self.cells = bytearray(PIXELS)
         self.acc = 0.0
         self.gen = 0
+        self.paused = False
         self._seed()
 
     def _seed(self) -> None:
@@ -136,11 +138,24 @@ class GameOfLife(Animation):
 
     def step(self, dt: float, canvas: Canvas) -> None:
         self.acc += dt
-        if self.acc >= 0.14:
+        if not self.paused and self.acc >= 0.14:
             self.acc = 0.0
             self._tick()
         for i, alive in enumerate(self.cells):
             canvas.pixels[i] = 220 if alive else 8
+
+    def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
+        if 0 <= x < WIDTH and 0 <= y < HEIGHT:
+            self.cells[y * WIDTH + x] = 0 if erase else 1
+
+    def key(self, code: str) -> None:
+        if code in {"KeyR", "Space"}:
+            self._seed()
+        elif code == "KeyP":
+            self.paused = not self.paused
+
+    def info(self) -> dict:
+        return {"gen": self.gen, "paused": self.paused}
 
     def _tick(self) -> None:
         nxt = bytearray(PIXELS)
@@ -205,15 +220,28 @@ class Rainstorm(Animation):
 class SnakeRun(Animation):
     id = "snake"
     name = "Snake"
-    description = "A hungry snake tours the 9×34 grid on a loop."
+    description = "Arrows or WASD to steer. Auto-plays until you take over."
     kind = "game"
 
     def __init__(self, rng: random.Random | None = None) -> None:
         self.rng = rng or random.Random()
-        self.body = deque([(2, 8), (2, 7), (2, 6)])
+        self.body: deque[tuple[int, int]] = deque()
         self.dir = (0, 1)
+        self.pending: tuple[int, int] | None = None
         self.food = (6, 20)
         self.acc = 0.0
+        self.auto = True
+        self.score = 0
+        self.best = 0
+        self.dead = 0.0
+        self._reset()
+
+    def _reset(self) -> None:
+        self.body = deque([(2, 8), (2, 7), (2, 6)])
+        self.dir = (0, 1)
+        self.pending = None
+        self.score = 0
+        self.dead = 0.0
         self._place_food()
 
     def _place_food(self) -> None:
@@ -225,11 +253,51 @@ class SnakeRun(Animation):
                 return
         self.food = (4, 16)
 
+    def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
+        hx, hy = self.body[-1]
+        dx, dy = x - hx, y - hy
+        if abs(dx) > abs(dy):
+            self.key("ArrowRight" if dx > 0 else "ArrowLeft")
+        elif dy != 0:
+            self.key("ArrowDown" if dy > 0 else "ArrowUp")
+
+    def stroke(self, points, erase: bool = False) -> None:
+        if points:
+            last = points[-1]
+            self.click(int(last[0]), int(last[1]))
+
+    def key(self, code: str) -> None:
+        mapping = {
+            "ArrowUp": (0, -1),
+            "KeyW": (0, -1),
+            "ArrowDown": (0, 1),
+            "KeyS": (0, 1),
+            "ArrowLeft": (-1, 0),
+            "KeyA": (-1, 0),
+            "ArrowRight": (1, 0),
+            "KeyD": (1, 0),
+        }
+        nxt = mapping.get(code)
+        if nxt is None:
+            return
+        if nxt[0] == -self.dir[0] and nxt[1] == -self.dir[1]:
+            return
+        self.auto = False
+        self.pending = nxt
+
+    def info(self) -> dict:
+        return {"score": self.score, "best": self.best, "auto": self.auto, "alive": self.dead <= 0}
+
     def step(self, dt: float, canvas: Canvas) -> None:
-        self.acc += dt
-        if self.acc >= 0.11:
-            self.acc = 0.0
-            self._advance()
+        if self.dead > 0:
+            self.dead -= dt
+            if self.dead <= 0:
+                self._reset()
+        else:
+            self.acc += dt
+            if self.acc >= 0.12:
+                self.acc = 0.0
+                self._advance()
         canvas.clear(0)
         canvas.blend(*self.food, 255)
         canvas.blend(self.food[0], self.food[1] - 1, 60)
@@ -239,6 +307,25 @@ class SnakeRun(Animation):
 
     def _advance(self) -> None:
         hx, hy = self.body[-1]
+        if self.auto:
+            self.dir = self._ai_dir(hx, hy)
+        elif self.pending is not None:
+            self.dir = self.pending
+            self.pending = None
+        nxt = ((hx + self.dir[0]) % WIDTH, (hy + self.dir[1]) % HEIGHT)
+        if nxt in set(self.body):
+            self.best = max(self.best, self.score)
+            self.dead = 1.0
+            return
+        self.body.append(nxt)
+        if nxt == self.food:
+            self.score += 1
+            self.best = max(self.best, self.score)
+            self._place_food()
+        else:
+            self.body.popleft()
+
+    def _ai_dir(self, hx: int, hy: int) -> tuple[int, int]:
         fx, fy = self.food
         options = [(0, 1), (0, -1), (1, 0), (-1, 0)]
         occupied = set(list(self.body)[1:])
@@ -246,30 +333,17 @@ class SnakeRun(Animation):
             options,
             key=lambda d: (abs(hx + d[0] - fx) + abs(hy + d[1] - fy), d != self.dir),
         )
-        chosen = None
         for dx, dy in ranked:
             nx, ny = (hx + dx) % WIDTH, (hy + dy) % HEIGHT
             if (nx, ny) not in occupied:
-                chosen = (dx, dy)
-                break
-        if chosen is None:
-            self.body = deque([(2, 8), (2, 7), (2, 6)])
-            self.dir = (0, 1)
-            self._place_food()
-            return
-        self.dir = chosen
-        nxt = ((hx + chosen[0]) % WIDTH, (hy + chosen[1]) % HEIGHT)
-        self.body.append(nxt)
-        if nxt == self.food:
-            self._place_food()
-        else:
-            self.body.popleft()
+                return (dx, dy)
+        return self.dir
 
 
 class PongMatch(Animation):
     id = "pong"
     name = "Pong"
-    description = "Two paddles, one ball, endless rallies down the module."
+    description = "Drag left/right on the module or use A/D to move your paddle."
     kind = "game"
 
     def __init__(self) -> None:
@@ -279,6 +353,23 @@ class PongMatch(Animation):
         self.vy = 14.0
         self.p1 = 3.0
         self.p2 = 3.0
+        self.auto = True
+        self.score = 0
+        self.best = 0
+
+    def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
+        self.auto = False
+        self.p2 = max(0, min(WIDTH - 3, float(x) - 1))
+
+    def key(self, code: str) -> None:
+        self.auto = False
+        if code in {"ArrowLeft", "KeyA"}:
+            self.p2 = max(0, self.p2 - 1)
+        elif code in {"ArrowRight", "KeyD"}:
+            self.p2 = min(WIDTH - 3, self.p2 + 1)
+
+    def info(self) -> dict:
+        return {"score": self.score, "best": self.best, "auto": self.auto, "alive": True}
 
     def step(self, dt: float, canvas: Canvas) -> None:
         self.bx += self.vx * dt
@@ -289,17 +380,21 @@ class PongMatch(Animation):
         elif self.bx > WIDTH - 1:
             self.bx = WIDTH - 1
             self.vx = -abs(self.vx)
+        # Opponent always tracks the ball.
         target = self.bx - 1.2
         self.p1 += max(-18 * dt, min(18 * dt, target - self.p1))
-        self.p2 += max(-18 * dt, min(18 * dt, target - self.p2))
         self.p1 = max(0, min(WIDTH - 3, self.p1))
-        self.p2 = max(0, min(WIDTH - 3, self.p2))
+        if self.auto:
+            self.p2 += max(-18 * dt, min(18 * dt, target - self.p2))
+            self.p2 = max(0, min(WIDTH - 3, self.p2))
         if self.by < 1.2:
             if self.p1 - 0.5 <= self.bx <= self.p1 + 3.5:
                 self.by = 1.2
                 self.vy = abs(self.vy)
                 self.vx += (self.bx - (self.p1 + 1.5)) * 3
             else:
+                self.score += 1
+                self.best = max(self.best, self.score)
                 self.by, self.bx = 16.0, 4.0
                 self.vy = 14.0
         elif self.by > HEIGHT - 2.2:
@@ -308,12 +403,13 @@ class PongMatch(Animation):
                 self.vy = -abs(self.vy)
                 self.vx += (self.bx - (self.p2 + 1.5)) * 3
             else:
+                self.score = max(0, self.score - 1)
                 self.by, self.bx = 16.0, 4.0
                 self.vy = -14.0
         canvas.clear(0)
         for i in range(3):
-            canvas.blend(int(self.p1) + i, 0, 230)
-            canvas.blend(int(self.p2) + i, HEIGHT - 1, 230)
+            canvas.blend(int(self.p1) + i, 0, 160)
+            canvas.blend(int(self.p2) + i, HEIGHT - 1, 255)
         for y in range(2, HEIGHT - 2, 2):
             canvas.blend(4, y, 40)
         canvas.blend(int(round(self.bx)), int(round(self.by)), 255)
@@ -460,7 +556,7 @@ class Breathe(Animation):
 class Sketch(Animation):
     id = "sketch"
     name = "Sketch"
-    description = "Draw on the matrix. Click a LED to ink, Shift+click to erase."
+    description = "Drag to draw. Shift-drag or right-drag erases. C clears."
     kind = "sketch"
 
     def __init__(self) -> None:
@@ -472,3 +568,7 @@ class Sketch(Animation):
     def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:
             self.pixels[y * WIDTH + x] = 0 if erase else 255
+
+    def key(self, code: str) -> None:
+        if code in {"KeyC", "Escape", "Delete", "Backspace"}:
+            self.pixels = bytearray(PIXELS)
