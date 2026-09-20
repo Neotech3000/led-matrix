@@ -158,7 +158,7 @@ function hudText(side, data) {
     return "Drag to pour sand. Shift-drag erases. C clears.";
   }
   if (id === "marquee") {
-    return "Type in the field under this well. Letters fill every column except the two on the sides.";
+    return "Type in the box under this well. Words enter at the top and loop down forever.";
   }
   if (id === "ecg") {
     return "A scrolling EKG trace — P wave, QRS spike, T wave. No heart icon.";
@@ -271,7 +271,25 @@ async function assign(side, id) {
   clearOverlay(side);
   lastLibKey = "";
   maybeRenderLibrary();
+  showMarqueeFields();
+  if (id === "marquee") {
+    const input = side === "right" ? rightText : leftText;
+    queueMicrotask(() => {
+      input.focus();
+      input.select();
+    });
+  }
   await post("/api/animation", { side, id });
+}
+
+function showMarqueeFields() {
+  for (const [side, input, field] of [
+    ["left", leftText, leftMarquee],
+    ["right", rightText, rightMarquee],
+  ]) {
+    const on = currentAnim(side) === "marquee";
+    field.classList.toggle("hidden", !on);
+  }
 }
 
 function ledFromEvent(canvas, event) {
@@ -588,12 +606,12 @@ async function tick() {
       speedEl.value = Math.round(data.speed * 100);
     }
     const texts = data.text || {};
-    for (const [side, input, field] of [
-      ["left", leftText, leftMarquee],
-      ["right", rightText, rightMarquee],
+    showMarqueeFields();
+    for (const [side, input] of [
+      ["left", leftText],
+      ["right", rightText],
     ]) {
       const isMarquee = currentAnim(side) === "marquee";
-      field.classList.toggle("hidden", !isMarquee);
       if (isMarquee && document.activeElement !== input && typeof texts[side] === "string") {
         input.value = texts[side];
       }

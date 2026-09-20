@@ -85,6 +85,31 @@ class ExtraAnimTests(unittest.TestCase):
         self.assertTrue(lit)
         self.assertIn("HI", anim.text)
 
+    def test_marquee_scrolls_down_from_the_top_and_loops(self):
+        anim = create_animation("marquee")
+        anim.set_text("A")
+        anim.t = 0.0
+        first = Canvas()
+        anim.step(0.0, first)
+
+        def top_lit(canvas):
+            for y in range(HEIGHT):
+                if any(canvas.pixels[y * 9 + x] for x in range(9)):
+                    return y
+            return None
+
+        y0 = top_lit(first)
+        self.assertIsNotNone(y0)
+        self.assertLess(y0, 4)
+        later = Canvas()
+        anim.step(0.5, later)
+        y1 = top_lit(later)
+        self.assertIsNotNone(y1)
+        self.assertGreater(y1, y0)
+        for _ in range(120):
+            anim.step(0.25, later)
+        self.assertGreater(sum(later.pixels), 0)
+
     def test_ecg_is_a_trace_not_a_heart_icon(self):
         anim = create_animation("ecg")
         self.assertEqual(anim.name, "ECG")

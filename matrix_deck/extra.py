@@ -513,7 +513,7 @@ def _rows(*lines: str) -> tuple[str, ...]:
 class Marquee(Animation):
     id = "marquee"
     name = "Marquee"
-    description = "Your text fills the well (side columns stay dark). Type below the preview."
+    description = "Type under the well. Your words enter at the top and loop down forever."
 
     # 7 columns wide, 5 rows tall — maps onto LEDs 1–7, leaving 0 and 8 empty.
     GLYPHS = {
@@ -585,27 +585,34 @@ class Marquee(Animation):
                 out.append(" ")
             else:
                 out.append(" ")
-        cleaned = "".join(out)
-        cleaned = " ".join(cleaned.split())
+        cleaned = " ".join("".join(out).split())
         if not cleaned:
             cleaned = self.DEFAULT
-        self.text = (cleaned[:48] + "  ") if not cleaned.endswith("  ") else cleaned[:50]
-        self.t = 0.0
+        # Trailing blanks keep a gap so the next loop does not crash into the last letter.
+        self.text = cleaned[:48] + "  "
 
-    def step(self, dt: float, canvas: Canvas) -> None:
-        self.t += dt
-        canvas.clear(0)
-        period = max(self.CHAR_H, len(self.text) * self.CHAR_H)
-        shift = int(self.t * 11) % period
-        origin = 1 - shift
+    def _paint(self, canvas: Canvas, origin: int) -> None:
         for i, ch in enumerate(self.text):
             rows = self.GLYPHS.get(ch, self.GLYPHS[" "])
             oy = origin + i * self.CHAR_H
+            if oy >= HEIGHT or oy + 5 < 0:
+                continue
             for dy, row in enumerate(rows):
                 for dx, cell in enumerate(row):
                     if cell in ". ":
                         continue
                     canvas.blend(1 + dx, oy + dy, 245)
+
+    def step(self, dt: float, canvas: Canvas) -> None:
+        self.t += dt
+        canvas.clear(0)
+        band = max(self.CHAR_H, len(self.text) * self.CHAR_H)
+        # Scroll downward from the top, tiling copies so it never stops.
+        offset = int(self.t * 9) % band
+        origin = -band + offset
+        while origin < HEIGHT:
+            self._paint(canvas, origin)
+            origin += band
 
 
 class Tetris(Animation):

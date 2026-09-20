@@ -161,23 +161,28 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--muted);
-  font-size: 0.75rem;
+  color: var(--ink);
+  font-size: 0.78rem;
+  padding: 10px;
+  border: 1px solid rgba(255, 116, 79, 0.5);
+  border-radius: 12px;
+  background: var(--panel);
 }
 .marquee-field.hidden { display: none; }
 .marquee-field input {
   appearance: none;
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: #101218;
   color: var(--ink);
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 1rem;
+  width: 100%;
 }
 .marquee-field input:focus {
   outline: none;
-  border-color: rgba(255, 116, 79, 0.7);
+  border-color: var(--orange);
 }
 
 .playbar {
