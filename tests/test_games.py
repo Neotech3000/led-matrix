@@ -282,6 +282,15 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(data["ok"])
         self.assertIn("HEY", self.deck.left_anim.text)
 
+    def test_random_endpoint_starts_shuffle(self):
+        status, data = self.post("/api/random", {"enabled": True})
+        self.assertEqual(status, 200)
+        self.assertTrue(data["random"])
+        self.assertTrue(self.deck.random_mode)
+        status, data = self.post("/api/random", {"enabled": False})
+        self.assertFalse(data["random"])
+        self.assertFalse(self.deck.random_mode)
+
     def test_rejects_bad_side(self):
         status, data = self.post("/api/key", {"side": "middle", "code": "Space"})
         self.assertEqual(status, 400)

@@ -52,6 +52,7 @@ To remove the menu entry and launcher (your clone stays on disk):
 - Left-column cards run on the left well; right-column cards run on the right well.
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
+- **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop.
 - The live preview stays in the **middle**; the first fifty loops are on the left, the rest on the right.
 
 ### Games, Sketch, Marquee

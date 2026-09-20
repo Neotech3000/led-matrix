@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import random
 import threading
 import time
 from dataclasses import dataclass, field
 
 from matrix_deck import __version__
-from matrix_deck.anim import Animation, catalog_meta, create_animation
+from matrix_deck.anim import Animation, animation_order, catalog_meta, create_animation
 from matrix_deck.canvas import Canvas
 from matrix_deck.hardware import LedMatrix
+
+SKIP_RANDOM = frozenset({"sketch", "sand"})
 
 
 @dataclass
@@ -28,6 +31,9 @@ class Deck:
     left_status: str = "simulated"
     right_status: str = "simulated"
     text: dict[str, str] = field(default_factory=lambda: {"left": "FRAMEWORK", "right": "FRAMEWORK"})
+    random_mode: bool = False
+    rng: random.Random = field(default_factory=random.Random)
+    _due: dict[str, float] = field(default_factory=lambda: {"left": 0.0, "right": 0.0}, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _stop: threading.Event = field(default_factory=threading.Event, repr=False)
     _thread: threading.Thread | None = field(default=None, repr=False)
@@ -49,6 +55,7 @@ class Deck:
     def set_animation(self, side: str, anim_id: str) -> None:
         anim = create_animation(anim_id)
         with self._lock:
+            self.random_mode = False
             if hasattr(anim, "set_text"):
                 anim.set_text(self.text[side if side == "right" else "left"])
             if side == "right":
@@ -57,6 +64,40 @@ class Deck:
             else:
                 self.left_id = anim.id
                 self.left_anim = anim
+
+    def set_random(self, enabled: bool) -> None:
+        with self._lock:
+            self.random_mode = bool(enabled)
+            if self.random_mode:
+                now = time.monotonic()
+                self._install_random("left", now)
+                self._install_random("right", now)
+
+    def _random_pool(self, avoid: set[str]) -> list[str]:
+        ids = [anim_id for anim_id in animation_order() if anim_id not in SKIP_RANDOM]
+        pool = [anim_id for anim_id in ids if anim_id not in avoid]
+        return pool or ids
+
+    def _install_random(self, side: str, now: float) -> None:
+        avoid = {self.left_id, self.right_id}
+        pick = self.rng.choice(self._random_pool(avoid))
+        anim = create_animation(pick)
+        if hasattr(anim, "set_text"):
+            anim.set_text(self.text[side])
+        if side == "right":
+            self.right_id = anim.id
+            self.right_anim = anim
+        else:
+            self.left_id = anim.id
+            self.left_anim = anim
+        self._due[side] = now + self.rng.uniform(10.0, 30.0)
+
+    def _advance_random(self, now: float) -> None:
+        if not self.random_mode:
+            return
+        for side in ("left", "right"):
+            if now >= self._due[side]:
+                self._install_random(side, now)
 
     def set_text(self, side: str, text: str) -> None:
         side = "right" if side == "right" else "left"
@@ -133,6 +174,7 @@ class Deck:
                 "auto": score_info.get("auto", True),
                 "brightness": self.brightness,
                 "speed": self.speed,
+                "random": self.random_mode,
                 "text": {"left": self.text["left"], "right": self.text["right"]},
                 "version": __version__,
                 "hardware": {
@@ -149,6 +191,8 @@ class Deck:
             dt = now - last
             last = now
             with self._lock:
+                if self.random_mode:
+                    self._advance_random(now)
                 scaled = dt * self.speed
                 self.left_anim.step(scaled, self.left_canvas)
                 self.right_anim.step(scaled, self.right_canvas)

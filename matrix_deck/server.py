@@ -124,6 +124,11 @@ class DeckHandler(SimpleHTTPRequestHandler):
                 return
             self._json(200, {"ok": True, "speed": self.deck.speed})
             return
+        if path == "/api/random":
+            enabled = bool(payload.get("enabled", True))
+            self.deck.set_random(enabled)
+            self._json(200, {"ok": True, "random": self.deck.random_mode})
+            return
         if path == "/api/text":
             side = str(payload.get("side", "left"))
             if side not in ("left", "right"):

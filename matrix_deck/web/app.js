@@ -30,6 +30,7 @@ const leftHud = document.getElementById("left-hud");
 const rightHud = document.getElementById("right-hud");
 const brightnessEl = document.getElementById("brightness");
 const speedEl = document.getElementById("speed");
+const randomBtn = document.getElementById("random-btn");
 const libraryLeft = document.getElementById("library-left");
 const libraryRight = document.getElementById("library-right");
 const leftText = document.getElementById("left-text");
@@ -437,7 +438,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -517,6 +518,10 @@ async function tick() {
     if (document.activeElement !== speedEl && typeof data.speed === "number") {
       speedEl.value = Math.round(data.speed * 100);
     }
+    if (randomBtn) {
+      randomBtn.classList.toggle("on", !!data.random);
+      randomBtn.textContent = data.random ? "Random · on" : "Random";
+    }
     const texts = data.text || {};
     showMarqueeFields();
     for (const [side, input] of [
@@ -567,6 +572,13 @@ brightnessEl.addEventListener("input", () => {
 
 speedEl.addEventListener("input", () => {
   post("/api/speed", { value: Number(speedEl.value) / 100 });
+});
+
+randomBtn.addEventListener("click", () => {
+  const on = !randomBtn.classList.contains("on");
+  randomBtn.classList.toggle("on", on);
+  randomBtn.textContent = on ? "Random · on" : "Random";
+  post("/api/random", { enabled: on });
 });
 
 function bindText(input, side) {
