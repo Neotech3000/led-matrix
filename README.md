@@ -1,15 +1,15 @@
 # LED Matrix
 
-Desktop app for the two **Framework Laptop 16 LED Matrix** input modules — the 9×34 greyscale wells beside the keyboard.
+Desktop app for two **Framework Laptop 16 LED Matrix** input modules — the 9×34 greyscale wells beside the keyboard.
 
-Pick a looping animation for each side, play Flappy Bird / Snake / Pong, paint Game of Life, or **drag with the mouse to sketch**. Built so someone who just bought the laptop can clone this repo, run one install script, and have a normal app in the menu.
+Pick an animation for each side or play games. Built so someone who just bought the laptop can have a normal app in the menu.
 
 Not an official Framework Computer product. MIT licensed.
 
 ## What you need
 
 - Framework Laptop 16
-- Two LED Matrix input modules plugged in next to the keyboard
+- at least 1 LED Matrix input module plugged in next to the keyboard
 - Linux with **Python 3.11+** (Omarchy, Arch, Fedora, Debian, Ubuntu all work)
 - No pip packages. No `pyserial`. The USB driver is the Python standard library.
 
