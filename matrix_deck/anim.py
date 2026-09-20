@@ -50,7 +50,9 @@ class Animation:
 
 
 def animation_order() -> list[str]:
-    return [
+    from matrix_deck.pack import animation_ids
+
+    core = [
         "flappy",
         "fishtank",
         "raincode",
@@ -86,10 +88,11 @@ def animation_order() -> list[str]:
         "sand",
         "sketch",
         "radar",
-        "candle",
+        "hourglass",
         "smoke",
         "skyline",
-        "heart",
+        "ecg",
+        "hearts",
         "orbit",
         "swarm",
         "crystal",
@@ -102,12 +105,13 @@ def animation_order() -> list[str]:
         "bounce",
         "marquee",
     ]
+    return core + animation_ids()
 
 
 def factories() -> dict[str, type[Animation]]:
-    from matrix_deck import effects, extra
+    from matrix_deck import effects, extra, pack
 
-    return {
+    table: dict[str, type[Animation]] = {
         "flappy": FlappyAnim,
         "fishtank": FishAnim,
         "raincode": effects.MatrixRain,
@@ -139,10 +143,11 @@ def factories() -> dict[str, type[Animation]]:
         "breakout": effects.Breakout,
         "sketch": effects.Sketch,
         "radar": extra.Radar,
-        "candle": extra.Candle,
+        "hourglass": extra.Hourglass,
         "smoke": extra.Smoke,
         "skyline": extra.Skyline,
-        "heart": extra.Heartbeat,
+        "ecg": extra.ECG,
+        "hearts": extra.Hearts,
         "orbit": extra.Orbit,
         "swarm": extra.Swarm,
         "crystal": extra.Crystal,
@@ -159,10 +164,16 @@ def factories() -> dict[str, type[Animation]]:
         "dino": extra.DinoRun,
         "dodge": extra.Dodge,
     }
+    table.update(pack.factories())
+    return table
+
+
+ALIASES = {"candle": "hourglass", "heart": "ecg", "heartbeat": "ecg"}
 
 
 def create_animation(anim_id: str) -> Animation:
     table = factories()
+    anim_id = ALIASES.get(anim_id, anim_id)
     cls = table.get(anim_id) or FlappyAnim
     return cls()
 

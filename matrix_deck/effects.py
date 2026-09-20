@@ -221,7 +221,7 @@ class Rainstorm(Animation):
 class SnakeRun(Animation):
     id = "snake"
     name = "Snake"
-    description = "Arrows or WASD to steer. Auto-plays until you take over."
+    description = "Arrows, WASD, the pad, or tap a side of the well to steer. Auto until you take over."
     kind = "game"
     drag = True
 
@@ -256,17 +256,28 @@ class SnakeRun(Animation):
         self.food = (4, 16)
 
     def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
-        hx, hy = self.body[-1]
-        dx, dy = x - hx, y - hy
-        if abs(dx) > abs(dy):
-            self.key("ArrowRight" if dx > 0 else "ArrowLeft")
-        elif dy != 0:
-            self.key("ArrowDown" if dy > 0 else "ArrowUp")
+        # Steer from the well center so a tap on a side always means that side,
+        # even while the snake head is somewhere else.
+        cx, cy = (WIDTH - 1) / 2.0, (HEIGHT - 1) / 2.0
+        dx, dy = x - cx, y - cy
+        if abs(dx) < 0.55 and abs(dy) < 0.55:
+            self.auto = False
+            return
+        if abs(dx) >= abs(dy):
+            self._steer((1, 0) if dx >= 0 else (-1, 0))
+        else:
+            self._steer((0, 1) if dy >= 0 else (0, -1))
 
     def stroke(self, points, erase: bool = False) -> None:
         if points:
             last = points[-1]
             self.click(int(last[0]), int(last[1]))
+
+    def _steer(self, nxt: tuple[int, int]) -> None:
+        self.auto = False
+        if nxt[0] == -self.dir[0] and nxt[1] == -self.dir[1]:
+            return
+        self.pending = nxt
 
     def key(self, code: str) -> None:
         mapping = {
@@ -282,10 +293,7 @@ class SnakeRun(Animation):
         nxt = mapping.get(code)
         if nxt is None:
             return
-        if nxt[0] == -self.dir[0] and nxt[1] == -self.dir[1]:
-            return
-        self.auto = False
-        self.pending = nxt
+        self._steer(nxt)
 
     def info(self) -> dict:
         return {"score": self.score, "best": self.best, "auto": self.auto, "alive": self.dead <= 0}
@@ -297,7 +305,8 @@ class SnakeRun(Animation):
                 self._reset()
         else:
             self.acc += dt
-            if self.acc >= 0.12:
+            step = 0.18 if not self.auto else 0.12
+            if self.acc >= step:
                 self.acc = 0.0
                 self._advance()
         canvas.clear(0)
@@ -345,7 +354,7 @@ class SnakeRun(Animation):
 class PongMatch(Animation):
     id = "pong"
     name = "Pong"
-    description = "Drag left/right on the module or use A/D to move your paddle."
+    description = "You are the bottom paddle. Drag anywhere, tap ← →, or use A/D."
     kind = "game"
     drag = True
 
@@ -359,17 +368,23 @@ class PongMatch(Animation):
         self.auto = True
         self.score = 0
         self.best = 0
+        self.paddle = 3
 
     def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
         self.auto = False
-        self.p2 = max(0, min(WIDTH - 3, float(x) - 1))
+        self.p2 = max(0, min(WIDTH - self.paddle, float(x) - 1))
+
+    def stroke(self, points, erase: bool = False) -> None:
+        if points:
+            last = points[-1]
+            self.click(int(last[0]), int(last[1]))
 
     def key(self, code: str) -> None:
         self.auto = False
         if code in {"ArrowLeft", "KeyA"}:
             self.p2 = max(0, self.p2 - 1)
         elif code in {"ArrowRight", "KeyD"}:
-            self.p2 = min(WIDTH - 3, self.p2 + 1)
+            self.p2 = min(WIDTH - self.paddle, self.p2 + 1)
 
     def info(self) -> dict:
         return {"score": self.score, "best": self.best, "auto": self.auto, "alive": True}
@@ -386,12 +401,13 @@ class PongMatch(Animation):
         # Opponent always tracks the ball.
         target = self.bx - 1.2
         self.p1 += max(-18 * dt, min(18 * dt, target - self.p1))
-        self.p1 = max(0, min(WIDTH - 3, self.p1))
+        self.p1 = max(0, min(WIDTH - self.paddle, self.p1))
         if self.auto:
             self.p2 += max(-18 * dt, min(18 * dt, target - self.p2))
-            self.p2 = max(0, min(WIDTH - 3, self.p2))
+            self.p2 = max(0, min(WIDTH - self.paddle, self.p2))
+        hit = self.paddle + 0.6
         if self.by < 1.2:
-            if self.p1 - 0.5 <= self.bx <= self.p1 + 3.5:
+            if self.p1 - 0.5 <= self.bx <= self.p1 + hit:
                 self.by = 1.2
                 self.vy = abs(self.vy)
                 self.vx += (self.bx - (self.p1 + 1.5)) * 3
@@ -401,7 +417,7 @@ class PongMatch(Animation):
                 self.by, self.bx = 16.0, 4.0
                 self.vy = 14.0
         elif self.by > HEIGHT - 2.2:
-            if self.p2 - 0.5 <= self.bx <= self.p2 + 3.5:
+            if self.p2 - 0.5 <= self.bx <= self.p2 + hit:
                 self.by = HEIGHT - 2.2
                 self.vy = -abs(self.vy)
                 self.vx += (self.bx - (self.p2 + 1.5)) * 3
@@ -410,9 +426,10 @@ class PongMatch(Animation):
                 self.by, self.bx = 16.0, 4.0
                 self.vy = -14.0
         canvas.clear(0)
-        for i in range(3):
+        for i in range(self.paddle):
             canvas.blend(int(self.p1) + i, 0, 160)
             canvas.blend(int(self.p2) + i, HEIGHT - 1, 255)
+            canvas.blend(int(self.p2) + i, HEIGHT - 2, 80)
         for y in range(2, HEIGHT - 2, 2):
             canvas.blend(4, y, 40)
         canvas.blend(int(round(self.bx)), int(round(self.by)), 255)

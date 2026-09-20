@@ -70,6 +70,55 @@ class ExtraAnimTests(unittest.TestCase):
         self.assertFalse(invaders.auto)
         self.assertIsNotNone(invaders.shot)
 
+    def test_marquee_custom_text_skips_side_columns(self):
+        anim = create_animation("marquee")
+        anim.set_text("HI")
+        canvas = Canvas()
+        lit = False
+        for _ in range(40):
+            anim.step(0.08, canvas)
+            for y in range(HEIGHT):
+                self.assertEqual(canvas.pixels[y * 9 + 0], 0)
+                self.assertEqual(canvas.pixels[y * 9 + 8], 0)
+            if sum(canvas.pixels) > 0:
+                lit = True
+        self.assertTrue(lit)
+        self.assertIn("HI", anim.text)
+
+    def test_ecg_is_a_trace_not_a_heart_icon(self):
+        anim = create_animation("ecg")
+        self.assertEqual(anim.name, "ECG")
+        canvas = Canvas()
+        anim.step(0.05, canvas)
+        # Old heartbeat drew a 7-pixel heart around (4,6). An EKG trace
+        # should not light that whole cluster at once.
+        cluster = [
+            canvas.get(4, 6),
+            canvas.get(3, 7),
+            canvas.get(5, 7),
+            canvas.get(4, 8),
+            canvas.get(4, 7),
+            canvas.get(3, 6),
+            canvas.get(5, 6),
+        ]
+        self.assertLess(sum(1 for v in cluster if v > 180), 6)
+        self.assertGreater(sum(canvas.pixels), 0)
+
+    def test_hearts_fall(self):
+        anim = create_animation("hearts")
+        self.assertEqual(anim.name, "Hearts")
+        canvas = Canvas()
+        for _ in range(30):
+            anim.step(0.2, canvas)
+        self.assertGreater(sum(canvas.pixels), 0)
+        self.assertGreater(len(anim.hearts), 0)
+
+    def test_hourglass_replaces_candle(self):
+        anim = create_animation("hourglass")
+        self.assertEqual(anim.id, "hourglass")
+        alias = create_animation("candle")
+        self.assertEqual(alias.id, "hourglass")
+
 
 
 class GameInputTests(unittest.TestCase):
@@ -92,11 +141,20 @@ class GameInputTests(unittest.TestCase):
         self.assertFalse(anim.auto)
         self.assertEqual(anim.pending, (1, 0))
 
-    def test_snake_click_steers_toward_pointer(self):
+    def test_snake_click_steers_from_well_center(self):
         anim = create_animation("snake")
-        hx, hy = anim.body[-1]
-        anim.click(hx + 4, hy)
+        anim.click(8, 17)
+        self.assertFalse(anim.auto)
         self.assertEqual(anim.pending, (1, 0))
+        anim.click(0, 17)
+        self.assertEqual(anim.pending, (-1, 0))
+
+    def test_snake_reverse_still_takes_over(self):
+        anim = create_animation("snake")
+        self.assertEqual(anim.dir, (0, 1))
+        anim.key("ArrowUp")
+        self.assertFalse(anim.auto)
+        self.assertIsNone(anim.pending)
 
     def test_pong_keys_move_paddle(self):
         anim = create_animation("pong")
@@ -184,6 +242,16 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(data["ok"])
         self.assertFalse(self.deck.right_anim.auto)
         self.assertEqual(self.deck.right_anim.pending, (-1, 0))
+
+    def test_speed_and_text_endpoints(self):
+        status, data = self.post("/api/speed", {"value": 1.5})
+        self.assertEqual(status, 200)
+        self.assertAlmostEqual(data["speed"], 1.5)
+        self.deck.set_animation("left", "marquee")
+        status, data = self.post("/api/text", {"side": "left", "text": "hey"})
+        self.assertEqual(status, 200)
+        self.assertTrue(data["ok"])
+        self.assertIn("HEY", self.deck.left_anim.text)
 
     def test_rejects_bad_side(self):
         status, data = self.post("/api/key", {"side": "middle", "code": "Space"})

@@ -16,6 +16,7 @@ from matrix_deck.hardware import LedMatrix
 class Deck:
     fps: float = 20.0
     brightness: int = 180
+    speed: float = 1.0
     left_id: str = "flappy"
     right_id: str = "fishtank"
     left_anim: Animation = field(default_factory=lambda: create_animation("flappy"))
@@ -26,6 +27,7 @@ class Deck:
     right_hw: LedMatrix | None = None
     left_status: str = "simulated"
     right_status: str = "simulated"
+    text: dict[str, str] = field(default_factory=lambda: {"left": "HELLO", "right": "HELLO"})
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _stop: threading.Event = field(default_factory=threading.Event, repr=False)
     _thread: threading.Thread | None = field(default=None, repr=False)
@@ -47,12 +49,26 @@ class Deck:
     def set_animation(self, side: str, anim_id: str) -> None:
         anim = create_animation(anim_id)
         with self._lock:
+            if hasattr(anim, "set_text"):
+                anim.set_text(self.text[side if side == "right" else "left"])
             if side == "right":
                 self.right_id = anim.id
                 self.right_anim = anim
             else:
                 self.left_id = anim.id
                 self.left_anim = anim
+
+    def set_text(self, side: str, text: str) -> None:
+        side = "right" if side == "right" else "left"
+        cleaned = str(text or "")[:48]
+        with self._lock:
+            self.text[side] = cleaned
+            anim = self.right_anim if side == "right" else self.left_anim
+            if hasattr(anim, "set_text"):
+                anim.set_text(cleaned)
+
+    def set_speed(self, value: float) -> None:
+        self.speed = max(0.25, min(2.5, float(value)))
 
     def click(self, side: str, x: int = 0, y: int = 0, erase: bool = False) -> None:
         with self._lock:
@@ -116,6 +132,8 @@ class Deck:
                 "alive": score_info.get("alive", True),
                 "auto": score_info.get("auto", True),
                 "brightness": self.brightness,
+                "speed": self.speed,
+                "text": {"left": self.text["left"], "right": self.text["right"]},
                 "version": __version__,
                 "hardware": {
                     "left": self.left_status,
@@ -131,8 +149,9 @@ class Deck:
             dt = now - last
             last = now
             with self._lock:
-                self.left_anim.step(dt, self.left_canvas)
-                self.right_anim.step(dt, self.right_canvas)
+                scaled = dt * self.speed
+                self.left_anim.step(scaled, self.left_canvas)
+                self.right_anim.step(scaled, self.right_canvas)
                 left_pixels = bytes(self.left_canvas.pixels)
                 right_pixels = bytes(self.right_canvas.pixels)
             self._push(left_pixels, right_pixels)

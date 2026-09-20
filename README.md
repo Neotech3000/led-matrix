@@ -48,28 +48,32 @@ To remove the menu entry and launcher (your clone stays on disk):
 
 ## Using the app
 
-- **Play here** focuses a module. Click a card to run that animation on the focused side.
-- **L** / **R** badges on a card send that animation to the left or right well directly.
-- Brightness is the slider above the cards.
-- The live preview is the same 9×34 grid the hardware is drawing.
+- **Play here** focuses a module for the keyboard.
+- Left-column cards run on the left well; right-column cards run on the right well.
+- **L** / **R** badges on a card send that animation to either well.
+- Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
+- The live preview stays in the **middle**; the first fifty loops are on the left, the rest on the right. Click a left card for the left well, a right card for the right well. **L** / **R** badges still send a loop to either side.
 
-### Games and Sketch
+### Games, Sketch, Marquee
 
 | Module | How to play |
 | --- | --- |
-| **Flappy Bird** | Click the well, press Space / W / ↑ to flap. Autopilot resumes if you stop. Default: left. |
+| **Flappy Bird** | Click the well, press Space / W / ↑ to flap. Autopilot until you take over. Default: left. |
 | **Fish tank** | Ambient loop. Default: right. |
-| **Snake** | Arrows or WASD. Auto-plays until you steer. Click/drag toward a direction also works. |
-| **Pong** | You are the bottom paddle. Drag left/right on the well or use A / D. |
+| **Snake** | Tap a **side of the well** (left/right/up/down), use the pad, or WASD / arrows. Auto-plays until you steer. |
+| **Pong** | You are the bright **bottom** paddle. Drag anywhere on the well or hold ← →. |
 | **Game of Life** | Drag to paint live cells, Shift-drag to erase. R reseeds, P pauses. |
-| **Sketch** | **Drag on the well — one LED per pixel.** Shift-drag erases. C clears. Use the Clear button under the well. |
+| **Sketch** | **Drag on the well — one LED per pixel.** Shift-drag erases. C clears. |
 | **Falling sand** | Drag to pour sand. Shift-drag erases. C clears. |
-| **Breakout / Pong / Dodge** | Drag or ← → on the pad under the well. |
-| **Snake / Tetris** | Arrow pad under the well, or WASD. |
+| **Breakout / Dodge** | Drag or ← → on the pad under the well. |
+| **Tetris** | Arrow pad under the well, or WASD. |
 | **Invaders** | ← → to move, Fire / Space to shoot. |
 | **Dino run / Flappy** | Flap button, click, or Space. |
+| **Marquee** | Type in the field under the well. Letters fill every column except the two on the sides. |
+| **ECG** | A scrolling EKG trace (no heart icon). |
+| **Hearts** | Lots of falling hearts. |
 
-There are **50** animations, including looping effects (rain, fire, stars, plasma, aurora, helix, marquee, and more). Each game has a control pad under its well so you can play without hunting for keys.
+There are **100** animations. Each game has a control pad under its well so you can play without hunting for keys.
 
 ## If left and right are swapped
 

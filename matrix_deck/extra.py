@@ -37,23 +37,54 @@ class Radar(Animation):
             canvas.blend(int(round(x)), int(round(y)), _clamp(255 - r * 8))
 
 
-class Candle(Animation):
-    id = "candle"
-    name = "Candle"
-    description = "A small flame flickers on a stem."
+class Hourglass(Animation):
+    id = "hourglass"
+    name = "Hourglass"
+    description = "Sand drains from the top bulb, then the glass flips."
 
-    def __init__(self, rng: random.Random | None = None) -> None:
-        self.rng = rng or random.Random()
+    def __init__(self) -> None:
         self.t = 0.0
+        self.grains = 18
 
     def step(self, dt: float, canvas: Canvas) -> None:
         self.t += dt
+        cycle = 5.4
+        phase = (self.t % cycle) / cycle
+        drained = int(self.grains * min(1.0, phase / 0.82))
+        top, bottom = self.grains - drained, drained
         canvas.clear(0)
-        for y in range(HEIGHT - 8, HEIGHT):
-            canvas.blend(4, y, 80)
-        flicker = self.rng.uniform(-1.2, 1.2)
-        for i, bright in enumerate((255, 220, 160, 90)):
-            canvas.blend(4 + int(round(flicker * (i < 2))), HEIGHT - 9 - i, bright)
+        for y in range(1, 8):
+            span = max(1, int((7 - y) * 0.55))
+            for x in range(4 - span, 5 + span):
+                canvas.blend(x, y, 36)
+        for y in range(26, 33):
+            span = max(1, int((y - 25) * 0.55))
+            for x in range(4 - span, 5 + span):
+                canvas.blend(x, y, 36)
+        for y in range(8, 26):
+            canvas.blend(4, y, 28)
+        canvas.blend(3, 16, 50)
+        canvas.blend(5, 16, 50)
+        placed = 0
+        for y in range(7, 1, -1):
+            span = max(1, int((7 - y) * 0.55))
+            for x in range(4 - span, 5 + span):
+                if placed >= top:
+                    break
+                canvas.blend(x, y, 210)
+                placed += 1
+        placed = 0
+        for y in range(32, 25, -1):
+            span = max(1, int((y - 25) * 0.55))
+            xs = list(range(4 - span, 5 + span))
+            for x in xs:
+                if placed >= bottom:
+                    break
+                canvas.blend(x, y, 220)
+                placed += 1
+        if 0.08 < phase < 0.82:
+            stream_y = 8 + int(17 * ((self.t * 9) % 1.0))
+            canvas.blend(4, stream_y, 255)
 
 
 class Smoke(Animation):
@@ -100,28 +131,96 @@ class Skyline(Animation):
                 canvas.set(x, y, 200 if window else 50)
 
 
-class Heartbeat(Animation):
-    id = "heart"
-    name = "Heartbeat"
-    description = "A pulse races down the well, then rests."
+def _ecg_voltage(phase: float) -> float:
+    t = phase % 1.0
+    p = math.exp(-((t - 0.14) / 0.028) ** 2) * 0.22
+    q = -math.exp(-((t - 0.25) / 0.012) ** 2) * 0.28
+    r = math.exp(-((t - 0.29) / 0.011) ** 2) * 1.0
+    s = -math.exp(-((t - 0.33) / 0.013) ** 2) * 0.42
+    tw = math.exp(-((t - 0.54) / 0.045) ** 2) * 0.32
+    return p + q + r + s + tw
+
+
+class ECG(Animation):
+    id = "ecg"
+    name = "ECG"
+    description = "A scrolling EKG trace: P wave, QRS spike, then T wave."
 
     def __init__(self) -> None:
         self.t = 0.0
 
     def step(self, dt: float, canvas: Canvas) -> None:
         self.t += dt
-        cycle = self.t % 1.15
-        canvas.clear(8)
-        for beat in (0.0, 0.18):
-            d = abs(cycle - beat)
-            if d > 0.16:
+        canvas.clear(4)
+        prev_x = None
+        for y in range(HEIGHT):
+            phase = (self.t * 0.72 - y * 0.038) % 1.0
+            x = 4.0 + _ecg_voltage(phase) * 3.15
+            x = max(1.0, min(7.0, x))
+            ix = int(round(x))
+            canvas.blend(ix, y, 255)
+            if abs(x - 4) > 0.35:
+                canvas.blend(ix + (1 if x > 4 else -1), y, 90)
+            if prev_x is not None and prev_x != ix:
+                lo, hi = sorted((prev_x, ix))
+                for fill in range(lo, hi + 1):
+                    canvas.blend(fill, y, 200)
+            prev_x = ix
+            canvas.blend(4, y, 22)
+
+
+class Hearts(Animation):
+    id = "hearts"
+    name = "Hearts"
+    description = "A shower of little hearts falling down the well."
+
+    SPRITE = (
+        (1, 0),
+        (3, 0),
+        (0, 1),
+        (1, 1),
+        (2, 1),
+        (3, 1),
+        (4, 1),
+        (0, 2),
+        (1, 2),
+        (2, 2),
+        (3, 2),
+        (4, 2),
+        (1, 3),
+        (2, 3),
+        (3, 3),
+        (2, 4),
+    )
+
+    def __init__(self, rng: random.Random | None = None) -> None:
+        self.rng = rng or random.Random()
+        self.hearts: list[list[float]] = []
+        self.acc = 0.0
+
+    def step(self, dt: float, canvas: Canvas) -> None:
+        self.acc += dt
+        while self.acc > 0.22:
+            self.acc -= 0.22
+            self.hearts.append(
+                [
+                    float(self.rng.randint(-1, WIDTH - 4)),
+                    -5.0,
+                    self.rng.uniform(7, 14),
+                    float(self.rng.randint(170, 255)),
+                ]
+            )
+        canvas.clear(0)
+        keep = []
+        for x, y, vy, br in self.hearts:
+            y += vy * dt
+            if y > HEIGHT + 2:
                 continue
-            y = int(4 + (HEIGHT - 8) * (d / 0.16))
-            for x in range(WIDTH):
-                canvas.blend(x, y, _clamp(255 * (1 - d / 0.16)))
-        cx, cy = 4, 6
-        for dx, dy in ((0, 0), (-1, 1), (1, 1), (0, 2), (0, 1), (-1, 0), (1, 0)):
-            canvas.blend(cx + dx, cy + dy, 220)
+            for dx, dy in self.SPRITE:
+                fade = 1.0 if dy < 3 else 0.75
+                canvas.blend(int(x) + dx, int(y) + dy, _clamp(br * fade))
+            keep.append([x, y, vy, br])
+        self.hearts = keep[-18:]
 
 
 class Orbit(Animation):
@@ -407,37 +506,106 @@ class Bounce(Animation):
         canvas.blend(int(self.x), int(self.y) + 1, 70)
 
 
+def _rows(*lines: str) -> tuple[str, ...]:
+    return tuple(line.ljust(7)[:7] for line in lines)
+
+
 class Marquee(Animation):
     id = "marquee"
     name = "Marquee"
-    description = "A chunky FRAMEWORK banner scrolls the long way."
+    description = "Your text fills the well (side columns stay dark). Type below the preview."
 
+    # 7 columns wide, 5 rows tall — maps onto LEDs 1–7, leaving 0 and 8 empty.
     GLYPHS = {
-        "F": [(0, 0), (1, 0), (2, 0), (0, 1), (0, 2), (1, 2), (0, 3), (0, 4)],
-        "R": [(0, 0), (1, 0), (2, 1), (0, 1), (0, 2), (1, 2), (0, 3), (2, 3), (0, 4), (2, 4)],
-        "A": [(1, 0), (0, 1), (2, 1), (0, 2), (1, 2), (2, 2), (0, 3), (2, 3), (0, 4), (2, 4)],
-        "M": [(0, 0), (2, 0), (0, 1), (1, 1), (2, 1), (0, 2), (2, 2), (0, 3), (2, 3), (0, 4), (2, 4)],
-        "E": [(0, 0), (1, 0), (2, 0), (0, 1), (0, 2), (1, 2), (0, 3), (0, 4), (1, 4), (2, 4)],
-        "W": [(0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (1, 2), (2, 2), (0, 3), (2, 3), (1, 4)],
-        "O": [(1, 0), (0, 1), (2, 1), (0, 2), (2, 2), (0, 3), (2, 3), (1, 4)],
-        "K": [(0, 0), (2, 0), (0, 1), (1, 1), (0, 2), (0, 3), (1, 3), (0, 4), (2, 4)],
+        "A": _rows(".#####.", "#.....#", "#######", "#.....#", "#.....#"),
+        "B": _rows("######.", "#.....#", "######.", "#.....#", "######."),
+        "C": _rows(".#####.", "#.....#", "#......", "#.....#", ".#####."),
+        "D": _rows("######.", "#.....#", "#.....#", "#.....#", "######."),
+        "E": _rows("#######", "#......", "#####..", "#......", "#######"),
+        "F": _rows("#######", "#......", "#####..", "#......", "#......"),
+        "G": _rows(".#####.", "#......", "#..####", "#.....#", ".#####."),
+        "H": _rows("#.....#", "#.....#", "#######", "#.....#", "#.....#"),
+        "I": _rows("#######", "...#...", "...#...", "...#...", "#######"),
+        "J": _rows("#######", ".....#.", ".....#.", "#....#.", ".####.."),
+        "K": _rows("#....#.", "#...#..", "####...", "#...#..", "#....#."),
+        "L": _rows("#......", "#......", "#......", "#......", "#######"),
+        "M": _rows("#.....#", "##...##", "#.#.#.#", "#..#..#", "#.....#"),
+        "N": _rows("#.....#", "##....#", "#.#...#", "#..##.#", "#.....#"),
+        "O": _rows(".#####.", "#.....#", "#.....#", "#.....#", ".#####."),
+        "P": _rows("######.", "#.....#", "######.", "#......", "#......"),
+        "Q": _rows(".#####.", "#.....#", "#..#..#", "#...#.#", ".#####."),
+        "R": _rows("######.", "#.....#", "######.", "#...#..", "#....#."),
+        "S": _rows(".######", "#......", ".#####.", "......#", "######."),
+        "T": _rows("#######", "...#...", "...#...", "...#...", "...#..."),
+        "U": _rows("#.....#", "#.....#", "#.....#", "#.....#", ".#####."),
+        "V": _rows("#.....#", "#.....#", "#.....#", ".#...#.", "..###.."),
+        "W": _rows("#.....#", "#.....#", "#.#.#.#", "##...##", "#.....#"),
+        "X": _rows("#.....#", ".#...#.", "..###..", ".#...#.", "#.....#"),
+        "Y": _rows("#.....#", ".#...#.", "..###..", "...#...", "...#..."),
+        "Z": _rows("#######", "....#..", "...#...", "..#....", "#######"),
+        "0": _rows(".#####.", "#...#.#", "#..#..#", "#.#...#", ".#####."),
+        "1": _rows("..##...", ".#.#...", "...#...", "...#...", ".#####."),
+        "2": _rows(".#####.", "#.....#", "...###.", ".##....", "#######"),
+        "3": _rows("######.", ".....#.", "..####.", ".....#.", "######."),
+        "4": _rows("#...#..", "#...#..", "#######", "....#..", "....#.."),
+        "5": _rows("#######", "#......", "######.", ".....#.", "######."),
+        "6": _rows(".#####.", "#......", "######.", "#.....#", ".#####."),
+        "7": _rows("#######", ".....#.", "...##..", "..#....", "..#...."),
+        "8": _rows(".#####.", "#.....#", ".#####.", "#.....#", ".#####."),
+        "9": _rows(".#####.", "#.....#", ".######", "......#", ".#####."),
+        " ": _rows(".......", ".......", ".......", ".......", "......."),
+        "!": _rows("..##...", "..##...", "..##...", ".......", "..##..."),
+        "?": _rows(".#####.", "#.....#", "...##..", ".......", "...#..."),
+        ".": _rows(".......", ".......", ".......", ".......", "..##..."),
+        ",": _rows(".......", ".......", ".......", "..##...", ".##...."),
+        "-": _rows(".......", ".......", "#######", ".......", "......."),
+        "+": _rows("...#...", "...#...", "#######", "...#...", "...#..."),
+        "'": _rows("..##...", "..#....", ".......", ".......", "......."),
+        ":": _rows(".......", "..##...", ".......", "..##...", "......."),
+        "/": _rows(".....#.", "....#..", "...#...", "..#....", ".#....."),
+        "#": _rows(".#.#.#.", "#######", ".#.#.#.", "#######", ".#.#.#."),
+        "*": _rows("#.#.#.#", ".#####.", "#######", ".#####.", "#.#.#.#"),
+        "&": _rows(".##....", "#..#...", ".##.#..", "#...#.#", ".###.#."),
     }
+    CHAR_H = 6
+    DEFAULT = "HELLO"
 
     def __init__(self) -> None:
         self.t = 0.0
-        self.text = "FRAMEWORK  "
+        self.text = f"{self.DEFAULT}  "
+
+    def set_text(self, text: str) -> None:
+        raw = str(text or "")
+        out = []
+        for ch in raw:
+            up = ch.upper()
+            if up in self.GLYPHS:
+                out.append(up)
+            elif ch == "\n":
+                out.append(" ")
+            else:
+                out.append(" ")
+        cleaned = "".join(out)
+        cleaned = " ".join(cleaned.split())
+        if not cleaned:
+            cleaned = self.DEFAULT
+        self.text = (cleaned[:48] + "  ") if not cleaned.endswith("  ") else cleaned[:50]
+        self.t = 0.0
 
     def step(self, dt: float, canvas: Canvas) -> None:
         self.t += dt
         canvas.clear(0)
-        shift = int(self.t * 10) % (len(self.text) * 4)
-        origin = 2 - shift
+        period = max(self.CHAR_H, len(self.text) * self.CHAR_H)
+        shift = int(self.t * 11) % period
+        origin = 1 - shift
         for i, ch in enumerate(self.text):
-            glyph = self.GLYPHS.get(ch, [])
-            ox = 2
-            oy = origin + i * 6
-            for dx, dy in glyph:
-                canvas.blend(ox + dx, oy + dy, 240)
+            rows = self.GLYPHS.get(ch, self.GLYPHS[" "])
+            oy = origin + i * self.CHAR_H
+            for dy, row in enumerate(rows):
+                for dx, cell in enumerate(row):
+                    if cell in ". ":
+                        continue
+                    canvas.blend(1 + dx, oy + dy, 245)
 
 
 class Tetris(Animation):

@@ -29,10 +29,16 @@ const rightName = document.getElementById("right-name");
 const leftHud = document.getElementById("left-hud");
 const rightHud = document.getElementById("right-hud");
 const brightnessEl = document.getElementById("brightness");
-const libraryEl = document.getElementById("library");
+const speedEl = document.getElementById("speed");
+const libraryLeft = document.getElementById("library-left");
+const libraryRight = document.getElementById("library-right");
 const focusLabel = document.getElementById("focus-label");
 const leftPlay = document.getElementById("left-play");
 const rightPlay = document.getElementById("right-play");
+const leftText = document.getElementById("left-text");
+const rightText = document.getElementById("right-text");
+const leftMarquee = document.getElementById("left-marquee");
+const rightMarquee = document.getElementById("right-marquee");
 
 let catalog = [];
 let focus = "left";
@@ -127,7 +133,11 @@ function hudText(side, data) {
   }
   if (id === "snake") {
     const pilot = info.alive ? (info.auto ? "AUTO until you steer" : "YOU") : "DEAD";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · arrows or WASD`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · tap a side of the well, arrows, WASD, or the pad`;
+  }
+  if (id === "pong") {
+    const pilot = info.auto ? "AUTO" : "YOU";
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · you are the bright bottom paddle · drag or ← →`;
   }
   if (id === "pong" || id === "breakout" || id === "dodge" || id === "tetris" || id === "invaders") {
     const pilot = info.auto ? "AUTO" : "YOU";
@@ -146,6 +156,15 @@ function hudText(side, data) {
   }
   if (id === "sand") {
     return "Drag to pour sand. Shift-drag erases. C clears.";
+  }
+  if (id === "marquee") {
+    return "Type in the field under this well. Letters fill every column except the two on the sides.";
+  }
+  if (id === "ecg") {
+    return "A scrolling EKG trace — P wave, QRS spike, T wave. No heart icon.";
+  }
+  if (id === "hearts") {
+    return "Hearts falling down the well.";
   }
   return item ? item.description : "";
 }
@@ -180,12 +199,18 @@ function kindLabel(kind) {
 
 function renderLibrary() {
   if (!catalog.length) return;
-  libraryEl.innerHTML = "";
-  for (const item of catalog) {
+  const mid = Math.ceil(catalog.length / 2);
+  fillLibrary(libraryLeft, catalog.slice(0, mid), "left");
+  fillLibrary(libraryRight, catalog.slice(mid), "right");
+}
+
+function fillLibrary(root, items, clickSide) {
+  root.innerHTML = "";
+  for (const item of items) {
     const card = document.createElement("article");
     card.className = "card";
-    const onFocus = state[`${focus}_anim`] === item.id;
-    if (onFocus) card.classList.add("active");
+    const onThis = state[`${clickSide}_anim`] === item.id;
+    if (onThis) card.classList.add("active");
     const leftOn = state.left_anim === item.id;
     const rightOn = state.right_anim === item.id;
 
@@ -218,8 +243,8 @@ function renderLibrary() {
     }
 
     card.append(title, blurb, badges);
-    card.addEventListener("click", () => assign(focus, item.id));
-    libraryEl.appendChild(card);
+    card.addEventListener("click", () => assign(clickSide, item.id));
+    root.appendChild(card);
   }
 }
 
@@ -271,10 +296,14 @@ function currentAnim(side) {
   return state[`${side}_anim`];
 }
 
+function paintsInk(id) {
+  return ["sketch", "sand", "life"].includes(id);
+}
+
 function wantsDrag(id) {
   const item = catalog.find((c) => c.id === id);
   if (item && item.drag) return true;
-  return ["sketch", "life", "pong", "snake", "sand", "breakout", "tetris", "invaders", "dodge"].includes(id);
+  return paintsInk(id) || ["pong", "snake", "breakout", "tetris", "invaders", "dodge"].includes(id);
 }
 
 function lineCells(x0, y0, x1, y1) {
@@ -338,7 +367,7 @@ function redraw(side) {
 function inkStroke(side, from, to, erase) {
   const cells = from ? lineCells(from.x, from.y, to.x, to.y) : [to];
   const id = currentAnim(side);
-  if (wantsDrag(id) || id === "sketch") {
+  if (paintsInk(id)) {
     for (const cell of cells) paintLocal(side, cell.x, cell.y, erase);
     redraw(side);
   }
@@ -397,7 +426,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".play-btn, .card, .badge, input, .side-btn")) {
+  if (event.target && event.target.closest && event.target.closest(".play-btn, .card, .badge, input, textarea, .side-btn, .meter")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -479,6 +508,29 @@ function sendKey(side, code) {
 
 let lastPlay = "";
 
+function bindHold(btn, side, code) {
+  let timer = null;
+  const fire = () => sendKey(side, code);
+  const stop = () => {
+    if (timer) clearInterval(timer);
+    timer = null;
+  };
+  btn.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      btn.setPointerCapture(event.pointerId);
+    } catch {
+      /* pointerup still fires on the button */
+    }
+    fire();
+    timer = setInterval(fire, 85);
+  });
+  btn.addEventListener("pointerup", stop);
+  btn.addEventListener("pointercancel", stop);
+  btn.addEventListener("lostpointercapture", stop);
+}
+
 function renderPlaybars() {
   const key = `${state.left_anim}|${state.right_anim}`;
   if (key === lastPlay) return;
@@ -493,11 +545,7 @@ function renderPlaybars() {
       btn.type = "button";
       btn.className = "play-btn";
       btn.textContent = label;
-      btn.addEventListener("pointerdown", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        sendKey(side, code);
-      });
+      bindHold(btn, side, code);
       el.appendChild(btn);
     }
   }
@@ -536,6 +584,20 @@ async function tick() {
     pill(leftPill, "Left", data.hardware.left);
     pill(rightPill, "Right", data.hardware.right);
     if (document.activeElement !== brightnessEl) brightnessEl.value = data.brightness;
+    if (document.activeElement !== speedEl && typeof data.speed === "number") {
+      speedEl.value = Math.round(data.speed * 100);
+    }
+    const texts = data.text || {};
+    for (const [side, input, field] of [
+      ["left", leftText, leftMarquee],
+      ["right", rightText, rightMarquee],
+    ]) {
+      const isMarquee = currentAnim(side) === "marquee";
+      field.classList.toggle("hidden", !isMarquee);
+      if (isMarquee && document.activeElement !== input && typeof texts[side] === "string") {
+        input.value = texts[side];
+      }
+    }
     maybeRenderLibrary();
     renderPlaybars();
   } catch (err) {
@@ -577,6 +639,18 @@ window.addEventListener("keydown", (event) => {
 brightnessEl.addEventListener("input", () => {
   post("/api/brightness", { value: Number(brightnessEl.value) });
 });
+
+speedEl.addEventListener("input", () => {
+  post("/api/speed", { value: Number(speedEl.value) / 100 });
+});
+
+function bindText(input, side) {
+  const send = () => post("/api/text", { side, text: input.value });
+  input.addEventListener("input", send);
+  input.addEventListener("change", send);
+}
+bindText(leftText, "left");
+bindText(rightText, "right");
 
 setFocus("left");
 

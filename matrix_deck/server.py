@@ -116,6 +116,22 @@ class DeckHandler(SimpleHTTPRequestHandler):
                 return
             self._json(200, {"ok": True, "brightness": self.deck.brightness})
             return
+        if path == "/api/speed":
+            try:
+                self.deck.set_speed(float(payload.get("value", self.deck.speed)))
+            except (TypeError, ValueError):
+                self._json(400, {"ok": False, "error": "invalid speed"})
+                return
+            self._json(200, {"ok": True, "speed": self.deck.speed})
+            return
+        if path == "/api/text":
+            side = str(payload.get("side", "left"))
+            if side not in ("left", "right"):
+                self._json(400, {"ok": False, "error": "side must be left or right"})
+                return
+            self.deck.set_text(side, str(payload.get("text", "")))
+            self._json(200, {"ok": True, "side": side, "text": self.deck.text[side]})
+            return
         if path == "/api/quit":
             threading.Thread(target=self._quit, daemon=True).start()
             self._json(200, {"ok": True})

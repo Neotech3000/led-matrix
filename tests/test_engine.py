@@ -20,6 +20,7 @@ class EngineTests(unittest.TestCase):
         self.assertIn("sketch", ids)
         self.assertEqual(snap["left_anim"], "flappy")
         self.assertEqual(snap["right_anim"], "fishtank")
+        self.assertEqual(snap["speed"], 1.0)
         kinds = {item["id"]: item["kind"] for item in snap["catalog"]}
         self.assertEqual(kinds["flappy"], "game")
         self.assertEqual(kinds["sketch"], "sketch")
@@ -32,14 +33,24 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(deck.right_id, "warp")
         deck.left_anim.step(0.05, deck.left_canvas)
         self.assertGreater(sum(deck.left_canvas.pixels), 0)
+        deck.set_speed(2.0)
+        self.assertEqual(deck.speed, 2.0)
+        deck.set_speed(9)
+        self.assertEqual(deck.speed, 2.5)
 
-    def test_catalog_has_fifty_unique_animations(self):
+    def test_catalog_has_one_hundred_unique_animations(self):
         items = catalog_meta()
         ids = [item["id"] for item in items]
-        self.assertEqual(len(ids), 50)
-        self.assertEqual(len(set(ids)), 50)
+        self.assertEqual(len(ids), 100)
+        self.assertEqual(len(set(ids)), 100)
         self.assertTrue(all("drag" in item for item in items))
         self.assertTrue(next(item for item in items if item["id"] == "sketch")["drag"])
+        self.assertIn("ecg", ids)
+        self.assertIn("hearts", ids)
+        self.assertIn("hourglass", ids)
+        self.assertIn("marquee", ids)
+        self.assertNotIn("candle", ids)
+        self.assertNotIn("heart", ids)
         canvas = Canvas()
         for item in catalog_meta():
             anim = create_animation(item["id"])
@@ -50,13 +61,22 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
+        self.assertNotIn("<h1>", html)
+        self.assertIn("library-left", html)
+        self.assertIn("library-right", html)
+        self.assertIn('id="speed"', html)
         self.assertNotIn("<button type=\"button\" class=\"bezel\"", html)
         js = (WEB_ROOT / "app.js").read_text()
         self.assertIn("/api/stroke", js)
         self.assertIn("/api/key", js)
+        self.assertIn("/api/speed", js)
+        self.assertIn("/api/text", js)
+        self.assertIn("paintsInk", js)
         self.assertIn("pointermove", js)
         self.assertIn("play-btn", js)
-        self.assertTrue((WEB_ROOT / "style.css").is_file())
+        css = (WEB_ROOT / "style.css").read_text()
+        self.assertIn("workspace", css)
+        self.assertIn("240px", css)
 
     def test_server_binds(self):
         deck = Deck()

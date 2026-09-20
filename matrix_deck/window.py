@@ -15,7 +15,7 @@ CHROME_FLAGS = (
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-sync",
-    "--window-size=1180,900",
+            "--window-size=1480,900",
 )
 
 CHROME_BINS = (
