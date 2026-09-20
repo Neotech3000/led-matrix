@@ -31,6 +31,8 @@ const rightHud = document.getElementById("right-hud");
 const brightnessEl = document.getElementById("brightness");
 const libraryEl = document.getElementById("library");
 const focusLabel = document.getElementById("focus-label");
+const leftPlay = document.getElementById("left-play");
+const rightPlay = document.getElementById("right-play");
 
 let catalog = [];
 let focus = "left";
@@ -127,16 +129,20 @@ function hudText(side, data) {
     const pilot = info.alive ? (info.auto ? "AUTO until you steer" : "YOU") : "DEAD";
     return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · arrows or WASD`;
   }
-  if (id === "pong" || id === "breakout") {
+  if (id === "pong" || id === "breakout" || id === "dodge" || id === "tetris" || id === "invaders") {
     const pilot = info.auto ? "AUTO" : "YOU";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · drag or A/D`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · pad / keys / drag`;
+  }
+  if (id === "dino") {
+    const pilot = info.alive ? (info.auto ? "AUTO" : "YOU") : "HIT";
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, Space, or Flap`;
   }
   if (id === "life") {
     const mode = info.paused ? "PAUSED" : "LIVE";
     return `Gen ${info.gen ?? 0} · ${mode} · drag to paint, Shift-drag erases, R reseeds, P pauses`;
   }
   if (id === "sketch") {
-    return "Drag on this well to draw. Shift-drag or right-drag erases. C / Esc / Delete clears.";
+    return "Drag on this well to draw one LED at a time. Shift-drag erases. C clears.";
   }
   if (id === "sand") {
     return "Drag to pour sand. Shift-drag erases. C clears.";
@@ -268,7 +274,7 @@ function currentAnim(side) {
 function wantsDrag(id) {
   const item = catalog.find((c) => c.id === id);
   if (item && item.drag) return true;
-  return ["sketch", "life", "pong", "snake", "sand", "breakout"].includes(id);
+  return ["sketch", "life", "pong", "snake", "sand", "breakout", "tetris", "invaders", "dodge"].includes(id);
 }
 
 function lineCells(x0, y0, x1, y1) {
@@ -298,26 +304,11 @@ function lineCells(x0, y0, x1, y1) {
 }
 
 function paintLocal(side, x, y, erase) {
-  const anim = currentAnim(side);
-  const neighbors =
-    anim === "sketch"
-      ? [
-          [0, 0, erase ? 0 : 255],
-          [1, 0, erase ? 0 : 200],
-          [-1, 0, erase ? 0 : 200],
-          [0, 1, erase ? 0 : 200],
-          [0, -1, erase ? 0 : 200],
-        ]
-      : [[0, 0, erase ? 0 : 255]];
-  for (const [dx, dy, value] of neighbors) {
-    const xx = x + dx;
-    const yy = y + dy;
-    if (xx < 0 || yy < 0 || xx >= WIDTH || yy >= HEIGHT) continue;
-    const i = yy * WIDTH + xx;
-    overlay[side][i] = value;
-    overlayOn[side][i] = 1;
-    lastPixels[side][i] = value;
-  }
+  const i = y * WIDTH + x;
+  const value = erase ? 0 : 255;
+  overlay[side][i] = value;
+  overlayOn[side][i] = 1;
+  lastPixels[side][i] = value;
 }
 
 function mergeOverlay(side, pixels) {
@@ -346,7 +337,8 @@ function redraw(side) {
 
 function inkStroke(side, from, to, erase) {
   const cells = from ? lineCells(from.x, from.y, to.x, to.y) : [to];
-  if (wantsDrag(currentAnim(side)) || currentAnim(side) === "sketch") {
+  const id = currentAnim(side);
+  if (wantsDrag(id) || id === "sketch") {
     for (const cell of cells) paintLocal(side, cell.x, cell.y, erase);
     redraw(side);
   }
@@ -354,35 +346,48 @@ function inkStroke(side, from, to, erase) {
   post("/api/stroke", { side, points, erase });
 }
 
-function onPointerDown(side, event) {
-  if (typeof event.button === "number" && event.button === 1) return;
-  event.preventDefault();
-  event.stopPropagation();
+function sideFromPoint(clientX, clientY) {
+  for (const side of ["left", "right"]) {
+    const canvas = side === "right" ? rightCanvas : leftCanvas;
+    const r = canvas.getBoundingClientRect();
+    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+      return side;
+    }
+  }
+  for (const side of ["left", "right"]) {
+    const bezel = side === "right" ? rightBezel : leftBezel;
+    const r = bezel.getBoundingClientRect();
+    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+      return side;
+    }
+  }
+  return null;
+}
+
+function isHeld(event) {
+  if (typeof event.buttons === "number") return (event.buttons & 1) !== 0 || (event.buttons & 2) !== 0;
+  return !!drawing;
+}
+
+function startDraw(side, event) {
   setFocus(side, { rebuild: false });
   const canvas = side === "right" ? rightCanvas : leftCanvas;
   const cell = ledFromEvent(canvas, event);
-  const erase = event.shiftKey || event.button === 2;
+  const erase = event.shiftKey || event.button === 2 || (event.buttons & 2) !== 0;
   drawing = {
     side,
     last: cell,
     erase,
     pointerId: event.pointerId,
-    paint: wantsDrag(currentAnim(side)),
+    paint: wantsDrag(currentAnim(side)) || currentAnim(side) === "sketch",
   };
-  const target = event.currentTarget;
-  try {
-    target.setPointerCapture(event.pointerId);
-  } catch {
-    /* window listeners still track the drag */
-  }
   inkStroke(side, null, cell, erase);
 }
 
-function onPointerMove(event) {
+function continueDraw(event) {
   if (!drawing) return;
-  if (event.pointerId !== undefined && event.pointerId !== drawing.pointerId) return;
-  event.preventDefault();
-  if (!drawing.paint && !wantsDrag(currentAnim(drawing.side))) return;
+  const id = currentAnim(drawing.side);
+  if (!wantsDrag(id) && id !== "sketch") return;
   const canvas = drawing.side === "right" ? rightCanvas : leftCanvas;
   const cell = ledFromEvent(canvas, event);
   if (cell.x === drawing.last.x && cell.y === drawing.last.y) return;
@@ -391,10 +396,111 @@ function onPointerMove(event) {
   drawing.last = cell;
 }
 
-function onPointerUp(event) {
-  if (!drawing) return;
-  if (event.pointerId !== undefined && event.pointerId !== drawing.pointerId) return;
+function onDocPointerDown(event) {
+  if (event.target && event.target.closest && event.target.closest(".play-btn, .card, .badge, input, .side-btn")) {
+    return;
+  }
+  if (typeof event.button === "number" && event.button === 1) return;
+  const side = sideFromPoint(event.clientX, event.clientY);
+  if (!side) return;
+  event.preventDefault();
+  startDraw(side, event);
+  try {
+    event.target.setPointerCapture && event.target.setPointerCapture(event.pointerId);
+  } catch {
+    /* window move handlers still work */
+  }
+}
+
+function onDocPointerMove(event) {
+  if (!isHeld(event) && !drawing) return;
+  if (drawing) {
+    event.preventDefault();
+    continueDraw(event);
+    return;
+  }
+  const side = sideFromPoint(event.clientX, event.clientY);
+  if (!side) return;
+  startDraw(side, event);
+}
+
+function onDocPointerUp() {
   drawing = null;
+}
+
+function playButtons(id) {
+  if (id === "flappy" || id === "dino") return [["Space", "Flap"]];
+  if (id === "snake") {
+    return [
+      ["ArrowLeft", "←"],
+      ["ArrowUp", "↑"],
+      ["ArrowDown", "↓"],
+      ["ArrowRight", "→"],
+    ];
+  }
+  if (id === "pong" || id === "breakout" || id === "dodge") {
+    return [
+      ["ArrowLeft", "←"],
+      ["ArrowRight", "→"],
+    ];
+  }
+  if (id === "tetris") {
+    return [
+      ["ArrowLeft", "←"],
+      ["ArrowUp", "↻"],
+      ["ArrowRight", "→"],
+      ["ArrowDown", "↓"],
+    ];
+  }
+  if (id === "invaders") {
+    return [
+      ["ArrowLeft", "←"],
+      ["Space", "Fire"],
+      ["ArrowRight", "→"],
+    ];
+  }
+  if (id === "life" || id === "langton") return [["KeyR", "Reseed"], ["KeyP", "Pause"]];
+  if (id === "sketch" || id === "sand") return [["KeyC", "Clear"]];
+  return [];
+}
+
+function sendKey(side, code) {
+  setFocus(side, { rebuild: false });
+  if (["KeyC", "Escape", "Delete", "Backspace"].includes(code)) {
+    const id = currentAnim(side);
+    if (id === "sketch" || id === "sand") {
+      clearOverlay(side);
+      lastPixels[side] = new Array(PIXELS).fill(id === "sand" ? 6 : 0);
+      redraw(side);
+    }
+  }
+  post("/api/key", { side, code });
+}
+
+let lastPlay = "";
+
+function renderPlaybars() {
+  const key = `${state.left_anim}|${state.right_anim}`;
+  if (key === lastPlay) return;
+  lastPlay = key;
+  for (const [side, el] of [
+    ["left", leftPlay],
+    ["right", rightPlay],
+  ]) {
+    el.innerHTML = "";
+    for (const [code, label] of playButtons(currentAnim(side))) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "play-btn";
+      btn.textContent = label;
+      btn.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        sendKey(side, code);
+      });
+      el.appendChild(btn);
+    }
+  }
 }
 
 async function tick() {
@@ -431,6 +537,7 @@ async function tick() {
     pill(rightPill, "Right", data.hardware.right);
     if (document.activeElement !== brightnessEl) brightnessEl.value = data.brightness;
     maybeRenderLibrary();
+    renderPlaybars();
   } catch (err) {
     leftPill.textContent = "Left · offline";
     rightPill.textContent = "Right · offline";
@@ -441,24 +548,14 @@ document.querySelectorAll(".side-btn").forEach((btn) => {
   btn.addEventListener("click", () => setFocus(btn.dataset.focus));
 });
 
-for (const [side, bezel, canvas] of [
-  ["left", leftBezel, leftCanvas],
-  ["right", rightBezel, rightCanvas],
-]) {
-  const down = (event) => onPointerDown(side, event);
-  canvas.addEventListener("pointerdown", down);
-  bezel.addEventListener("pointerdown", (event) => {
-    if (event.target === canvas) return;
-    down(event);
-  });
-  bezel.addEventListener("contextmenu", (event) => event.preventDefault());
-  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
-  bezel.addEventListener("focus", () => setFocus(side, { rebuild: false }));
-}
-
-window.addEventListener("pointermove", onPointerMove);
-window.addEventListener("pointerup", onPointerUp);
-window.addEventListener("pointercancel", onPointerUp);
+document.addEventListener("pointerdown", onDocPointerDown, true);
+document.addEventListener("pointermove", onDocPointerMove, true);
+document.addEventListener("pointerup", onDocPointerUp, true);
+document.addEventListener("pointercancel", onDocPointerUp, true);
+document.addEventListener("mousemove", onDocPointerMove, true);
+document.addEventListener("mouseup", onDocPointerUp, true);
+leftBezel.addEventListener("contextmenu", (event) => event.preventDefault());
+rightBezel.addEventListener("contextmenu", (event) => event.preventDefault());
 
 window.addEventListener("keydown", (event) => {
   if (event.target && ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) {
@@ -474,15 +571,7 @@ window.addEventListener("keydown", (event) => {
   ) {
     event.preventDefault();
   }
-  if (["KeyC", "Escape", "Delete", "Backspace"].includes(event.code)) {
-    const id = currentAnim(focus);
-    if (id === "sketch" || id === "sand") {
-      clearOverlay(focus);
-      lastPixels[focus] = new Array(PIXELS).fill(id === "sand" ? 6 : 0);
-      redraw(focus);
-    }
-  }
-  post("/api/key", { side: focus, code: event.code });
+  sendKey(focus, event.code);
 });
 
 brightnessEl.addEventListener("input", () => {

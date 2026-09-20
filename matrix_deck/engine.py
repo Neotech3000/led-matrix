@@ -6,6 +6,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
+from matrix_deck import __version__
 from matrix_deck.anim import Animation, catalog_meta, create_animation
 from matrix_deck.canvas import Canvas
 from matrix_deck.hardware import LedMatrix
@@ -115,6 +116,7 @@ class Deck:
                 "alive": score_info.get("alive", True),
                 "auto": score_info.get("auto", True),
                 "brightness": self.brightness,
+                "version": __version__,
                 "hardware": {
                     "left": self.left_status,
                     "right": self.right_status,

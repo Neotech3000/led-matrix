@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import signal
+import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
 
+from matrix_deck import __version__
 from matrix_deck.engine import Deck
 from matrix_deck.hardware import (
     LedMatrix,
@@ -18,7 +20,7 @@ from matrix_deck.hardware import (
     warn,
 )
 from matrix_deck.server import make_server
-from matrix_deck.window import open_window, wait_ready
+from matrix_deck.window import fetch_health, open_window, request_quit, wait_ready
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -65,9 +67,24 @@ def main(argv: list[str] | None = None) -> int:
         if args.host == "0.0.0.0":
             args.host = "127.0.0.1"
         preview = f"http://127.0.0.1:{args.port}"
-        if wait_ready(preview, timeout=0.6):
+        running = fetch_health(preview)
+        if running and running.get("version") == __version__:
             open_window(preview)
             return 0
+        if running:
+            warn("an older LED Matrix is still running — restarting it")
+            request_quit(preview)
+            time.sleep(0.35)
+            if fetch_health(preview):
+                try:
+                    subprocess.run(
+                        ["fuser", "-k", f"{args.port}/tcp"],
+                        check=False,
+                        capture_output=True,
+                    )
+                except FileNotFoundError:
+                    pass
+                time.sleep(0.25)
 
     deck = Deck(fps=args.fps, brightness=args.brightness)
     if args.left_anim != "flappy":

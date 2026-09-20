@@ -61,6 +61,15 @@ class ExtraAnimTests(unittest.TestCase):
         anim.stroke([(6, 30)])
         self.assertFalse(anim.auto)
 
+    def test_tetris_and_invaders_take_keys(self):
+        tetris = create_animation("tetris")
+        tetris.key("ArrowLeft")
+        self.assertFalse(tetris.auto)
+        invaders = create_animation("invaders")
+        invaders.key("Space")
+        self.assertFalse(invaders.auto)
+        self.assertIsNotNone(invaders.shot)
+
 
 
 class GameInputTests(unittest.TestCase):

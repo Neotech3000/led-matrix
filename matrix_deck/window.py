@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import time
@@ -57,16 +58,37 @@ def window_command(url: str) -> list[str] | None:
     return None
 
 
+def fetch_health(url: str, timeout: float = 0.4) -> dict | None:
+    health = url.rstrip("/") + "/api/health"
+    try:
+        with urllib.request.urlopen(health, timeout=timeout) as response:
+            if response.status != 200:
+                return None
+            return json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError):
+        return None
+
+
+def request_quit(url: str) -> None:
+    req = urllib.request.Request(
+        url.rstrip("/") + "/api/quit",
+        data=b"{}",
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        urllib.request.urlopen(req, timeout=0.8)
+    except (urllib.error.URLError, TimeoutError, OSError):
+        pass
+
+
 def wait_ready(url: str, timeout: float = 8.0) -> bool:
     deadline = time.monotonic() + timeout
-    health = url.rstrip("/") + "/api/health"
     while time.monotonic() < deadline:
-        try:
-            with urllib.request.urlopen(health, timeout=0.4) as response:
-                if response.status == 200:
-                    return True
-        except (urllib.error.URLError, TimeoutError, OSError):
-            time.sleep(0.12)
+        info = fetch_health(url)
+        if info and info.get("ok"):
+            return True
+        time.sleep(0.12)
     return False
 
 

@@ -559,7 +559,7 @@ class Breathe(Animation):
 class Sketch(Animation):
     id = "sketch"
     name = "Sketch"
-    description = "Drag across the well to draw. Shift-drag or right-drag erases. C clears."
+    description = "Drag one LED at a time to draw. Shift-drag erases. C clears."
     kind = "sketch"
     drag = True
 
@@ -570,13 +570,8 @@ class Sketch(Animation):
         canvas.pixels[:] = self.pixels
 
     def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
-        ink = 0 if erase else 255
-        for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
-            xx, yy = x + dx, y + dy
-            if 0 <= xx < WIDTH and 0 <= yy < HEIGHT:
-                value = ink if dx == 0 and dy == 0 else (0 if erase else 200)
-                if erase or self.pixels[yy * WIDTH + xx] < value:
-                    self.pixels[yy * WIDTH + xx] = value if not erase else 0
+        if 0 <= x < WIDTH and 0 <= y < HEIGHT:
+            self.pixels[y * WIDTH + x] = 0 if erase else 255
 
     def key(self, code: str) -> None:
         if code in {"KeyC", "Escape", "Delete", "Backspace"}:

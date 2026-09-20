@@ -62,6 +62,10 @@ def animation_order() -> list[str]:
         "snake",
         "pong",
         "breakout",
+        "tetris",
+        "invaders",
+        "dino",
+        "dodge",
         "eq",
         "warp",
         "scanner",
@@ -81,11 +85,27 @@ def animation_order() -> list[str]:
         "kaleido",
         "sand",
         "sketch",
+        "radar",
+        "candle",
+        "smoke",
+        "skyline",
+        "heart",
+        "orbit",
+        "swarm",
+        "crystal",
+        "sierpinski",
+        "meteor",
+        "tron",
+        "wipe",
+        "columns",
+        "langton",
+        "bounce",
+        "marquee",
     ]
 
 
 def factories() -> dict[str, type[Animation]]:
-    from matrix_deck import effects
+    from matrix_deck import effects, extra
 
     return {
         "flappy": FlappyAnim,
@@ -118,6 +138,26 @@ def factories() -> dict[str, type[Animation]]:
         "sand": effects.FallingSand,
         "breakout": effects.Breakout,
         "sketch": effects.Sketch,
+        "radar": extra.Radar,
+        "candle": extra.Candle,
+        "smoke": extra.Smoke,
+        "skyline": extra.Skyline,
+        "heart": extra.Heartbeat,
+        "orbit": extra.Orbit,
+        "swarm": extra.Swarm,
+        "crystal": extra.Crystal,
+        "sierpinski": extra.Sierpinski,
+        "meteor": extra.MeteorShower,
+        "tron": extra.LightCycle,
+        "wipe": extra.Wipe,
+        "columns": extra.Columns,
+        "langton": extra.Langton,
+        "bounce": extra.Bounce,
+        "marquee": extra.Marquee,
+        "tetris": extra.Tetris,
+        "invaders": extra.Invaders,
+        "dino": extra.DinoRun,
+        "dodge": extra.Dodge,
     }
 
 

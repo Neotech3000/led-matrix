@@ -33,11 +33,11 @@ class EngineTests(unittest.TestCase):
         deck.left_anim.step(0.05, deck.left_canvas)
         self.assertGreater(sum(deck.left_canvas.pixels), 0)
 
-    def test_catalog_has_thirty_unique_animations(self):
+    def test_catalog_has_fifty_unique_animations(self):
         items = catalog_meta()
         ids = [item["id"] for item in items]
-        self.assertEqual(len(ids), 30)
-        self.assertEqual(len(set(ids)), 30)
+        self.assertEqual(len(ids), 50)
+        self.assertEqual(len(set(ids)), 50)
         self.assertTrue(all("drag" in item for item in items))
         self.assertTrue(next(item for item in items if item["id"] == "sketch")["drag"])
         canvas = Canvas()
@@ -55,7 +55,7 @@ class EngineTests(unittest.TestCase):
         self.assertIn("/api/stroke", js)
         self.assertIn("/api/key", js)
         self.assertIn("pointermove", js)
-        self.assertIn("paintLocal", js)
+        self.assertIn("play-btn", js)
         self.assertTrue((WEB_ROOT / "style.css").is_file())
 
     def test_server_binds(self):

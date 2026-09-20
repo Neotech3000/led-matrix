@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from matrix_deck import __version__
 from matrix_deck.anim import catalog_meta
 from matrix_deck.engine import Deck
 
@@ -15,9 +18,16 @@ WEB_ROOT = Path(__file__).resolve().parent / "web"
 
 class DeckHandler(SimpleHTTPRequestHandler):
     deck: Deck
+    httpd = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
+
+    def end_headers(self) -> None:
+        path = self.path.split("?", 1)[0]
+        if not path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-store")
+        super().end_headers()
 
     def log_message(self, format: str, *args) -> None:  # noqa: A003
         if self.path.startswith("/api/"):
@@ -33,7 +43,7 @@ class DeckHandler(SimpleHTTPRequestHandler):
             self._json(200, {"animations": catalog_meta()})
             return
         if path == "/api/health":
-            self._json(200, {"ok": True})
+            self._json(200, {"ok": True, "version": __version__, "animations": len(catalog_meta())})
             return
         super().do_GET()
 
@@ -106,6 +116,10 @@ class DeckHandler(SimpleHTTPRequestHandler):
                 return
             self._json(200, {"ok": True, "brightness": self.deck.brightness})
             return
+        if path == "/api/quit":
+            threading.Thread(target=self._quit, daemon=True).start()
+            self._json(200, {"ok": True})
+            return
         self._json(404, {"ok": False, "error": "not found"})
 
     def _json(self, status: int, payload: dict) -> None:
@@ -117,10 +131,20 @@ class DeckHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _quit(self) -> None:
+        time.sleep(0.05)
+        try:
+            self.deck.stop()
+        except Exception:
+            pass
+        if self.httpd is not None:
+            self.httpd.shutdown()
+
 
 def make_server(deck: Deck, host: str, port: int) -> ThreadingHTTPServer:
     DeckHandler.deck = deck
     handler = partial(DeckHandler)
     httpd = ThreadingHTTPServer((host, port), handler)
     httpd.daemon_threads = True
+    DeckHandler.httpd = httpd
     return httpd
