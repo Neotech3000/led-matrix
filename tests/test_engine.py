@@ -105,6 +105,9 @@ class EngineTests(unittest.TestCase):
         css = (WEB_ROOT / "style.css").read_text()
         self.assertIn("workspace", css)
         self.assertIn("240px", css)
+        self.assertIn("scrollbar-color", css)
+        self.assertIn("rail-left", html)
+        self.assertIn("rail-right", html)
 
     def test_server_binds(self):
         deck = Deck()
