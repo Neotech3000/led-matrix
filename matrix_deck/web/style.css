@@ -106,22 +106,6 @@ html, body {
 }
 .module-head p, .assign, .hud { margin: 0; color: var(--muted); font-size: 0.82rem; }
 
-.side-btn {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 0.72rem;
-  cursor: pointer;
-}
-.side-btn.active {
-  border-color: rgba(255, 116, 79, 0.7);
-  color: var(--ink);
-  background: rgba(255, 116, 79, 0.12);
-}
-
 .bezel {
   border: 1px solid #2c313a;
   background: linear-gradient(180deg, #1a1d23, #0c0d10);
@@ -184,29 +168,6 @@ canvas {
   outline: none;
   border-color: var(--orange);
 }
-
-.playbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 2.6em;
-}
-.playbar:empty { display: none; }
-.play-btn {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--ink);
-  border-radius: 12px;
-  padding: 12px 16px;
-  font: inherit;
-  font-size: 0.95rem;
-  cursor: pointer;
-  min-width: 3.1em;
-  min-height: 2.6em;
-}
-.play-btn:hover { border-color: rgba(255, 116, 79, 0.55); }
-.play-btn:active { background: rgba(255, 116, 79, 0.16); }
 
 .assign {
   grid-column: 1 / -1;
@@ -280,6 +241,5 @@ canvas {
   }
   .stage { grid-template-columns: 1fr 1fr; gap: 12px; }
   .meter input[type="range"] { width: 180px; }
-  .side-btn { display: none; }
   .top { padding-left: 12px; padding-right: 12px; }
 }

@@ -221,7 +221,7 @@ class Rainstorm(Animation):
 class SnakeRun(Animation):
     id = "snake"
     name = "Snake"
-    description = "Arrows, WASD, the pad, or tap a side of the well to steer. Auto until you take over."
+    description = "Arrows, WASD, or tap a side of the well to steer. Auto until you take over."
     kind = "game"
     drag = True
 

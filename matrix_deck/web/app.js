@@ -32,9 +32,6 @@ const brightnessEl = document.getElementById("brightness");
 const speedEl = document.getElementById("speed");
 const libraryLeft = document.getElementById("library-left");
 const libraryRight = document.getElementById("library-right");
-const focusLabel = document.getElementById("focus-label");
-const leftPlay = document.getElementById("left-play");
-const rightPlay = document.getElementById("right-play");
 const leftText = document.getElementById("left-text");
 const rightText = document.getElementById("right-text");
 const leftMarquee = document.getElementById("left-marquee");
@@ -133,7 +130,7 @@ function hudText(side, data) {
   }
   if (id === "snake") {
     const pilot = info.alive ? (info.auto ? "AUTO until you steer" : "YOU") : "DEAD";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · tap a side of the well, arrows, WASD, or the pad`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · tap a side of the well, or arrows / WASD`;
   }
   if (id === "pong") {
     const pilot = info.auto ? "AUTO" : "YOU";
@@ -141,11 +138,11 @@ function hudText(side, data) {
   }
   if (id === "pong" || id === "breakout" || id === "dodge" || id === "tetris" || id === "invaders") {
     const pilot = info.auto ? "AUTO" : "YOU";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · pad / keys / drag`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, drag, or arrows`;
   }
   if (id === "dino") {
     const pilot = info.alive ? (info.auto ? "AUTO" : "YOU") : "HIT";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, Space, or Flap`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, Space, or ↑`;
   }
   if (id === "life") {
     const mode = info.paused ? "PAUSED" : "LIVE";
@@ -171,10 +168,6 @@ function hudText(side, data) {
 
 function setFocus(side, { rebuild = true } = {}) {
   focus = side;
-  focusLabel.textContent = side;
-  document.querySelectorAll(".side-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.focus === side);
-  });
   document.querySelectorAll(".module").forEach((mod) => {
     mod.classList.toggle("focused", mod.dataset.side === side);
   });
@@ -444,7 +437,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".play-btn, .card, .badge, input, textarea, .side-btn, .meter")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -475,42 +468,6 @@ function onDocPointerUp() {
   drawing = null;
 }
 
-function playButtons(id) {
-  if (id === "flappy" || id === "dino") return [["Space", "Flap"]];
-  if (id === "snake") {
-    return [
-      ["ArrowLeft", "←"],
-      ["ArrowUp", "↑"],
-      ["ArrowDown", "↓"],
-      ["ArrowRight", "→"],
-    ];
-  }
-  if (id === "pong" || id === "breakout" || id === "dodge") {
-    return [
-      ["ArrowLeft", "←"],
-      ["ArrowRight", "→"],
-    ];
-  }
-  if (id === "tetris") {
-    return [
-      ["ArrowLeft", "←"],
-      ["ArrowUp", "↻"],
-      ["ArrowRight", "→"],
-      ["ArrowDown", "↓"],
-    ];
-  }
-  if (id === "invaders") {
-    return [
-      ["ArrowLeft", "←"],
-      ["Space", "Fire"],
-      ["ArrowRight", "→"],
-    ];
-  }
-  if (id === "life" || id === "langton") return [["KeyR", "Reseed"], ["KeyP", "Pause"]];
-  if (id === "sketch" || id === "sand") return [["KeyC", "Clear"]];
-  return [];
-}
-
 function sendKey(side, code) {
   setFocus(side, { rebuild: false });
   if (["KeyC", "Escape", "Delete", "Backspace"].includes(code)) {
@@ -522,51 +479,6 @@ function sendKey(side, code) {
     }
   }
   post("/api/key", { side, code });
-}
-
-let lastPlay = "";
-
-function bindHold(btn, side, code) {
-  let timer = null;
-  const fire = () => sendKey(side, code);
-  const stop = () => {
-    if (timer) clearInterval(timer);
-    timer = null;
-  };
-  btn.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    try {
-      btn.setPointerCapture(event.pointerId);
-    } catch {
-      /* pointerup still fires on the button */
-    }
-    fire();
-    timer = setInterval(fire, 85);
-  });
-  btn.addEventListener("pointerup", stop);
-  btn.addEventListener("pointercancel", stop);
-  btn.addEventListener("lostpointercapture", stop);
-}
-
-function renderPlaybars() {
-  const key = `${state.left_anim}|${state.right_anim}`;
-  if (key === lastPlay) return;
-  lastPlay = key;
-  for (const [side, el] of [
-    ["left", leftPlay],
-    ["right", rightPlay],
-  ]) {
-    el.innerHTML = "";
-    for (const [code, label] of playButtons(currentAnim(side))) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "play-btn";
-      btn.textContent = label;
-      bindHold(btn, side, code);
-      el.appendChild(btn);
-    }
-  }
 }
 
 async function tick() {
@@ -617,16 +529,11 @@ async function tick() {
       }
     }
     maybeRenderLibrary();
-    renderPlaybars();
   } catch (err) {
     leftPill.textContent = "Left · offline";
     rightPill.textContent = "Right · offline";
   }
 }
-
-document.querySelectorAll(".side-btn").forEach((btn) => {
-  btn.addEventListener("click", () => setFocus(btn.dataset.focus));
-});
 
 document.addEventListener("pointerdown", onDocPointerDown, true);
 document.addEventListener("pointermove", onDocPointerMove, true);

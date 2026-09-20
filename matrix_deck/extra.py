@@ -568,7 +568,7 @@ class Marquee(Animation):
         "&": _rows(".##....", "#..#...", ".##.#..", "#...#.#", ".###.#."),
     }
     CHAR_H = 6
-    DEFAULT = "HELLO"
+    DEFAULT = "FRAMEWORK"
 
     def __init__(self) -> None:
         self.t = 0.0
@@ -618,7 +618,7 @@ class Marquee(Animation):
 class Tetris(Animation):
     id = "tetris"
     name = "Tetris"
-    description = "Arrows or the pad: left/right, up rotate, down drop."
+    description = "Arrows or WASD: left/right, up rotate, down drop."
     kind = "game"
     drag = True
 

@@ -27,7 +27,7 @@ class Deck:
     right_hw: LedMatrix | None = None
     left_status: str = "simulated"
     right_status: str = "simulated"
-    text: dict[str, str] = field(default_factory=lambda: {"left": "HELLO", "right": "HELLO"})
+    text: dict[str, str] = field(default_factory=lambda: {"left": "FRAMEWORK", "right": "FRAMEWORK"})
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _stop: threading.Event = field(default_factory=threading.Event, repr=False)
     _thread: threading.Thread | None = field(default=None, repr=False)

@@ -48,11 +48,11 @@ To remove the menu entry and launcher (your clone stays on disk):
 
 ## Using the app
 
-- **Play here** focuses a module for the keyboard.
+- Click a well to send keyboard input there.
 - Left-column cards run on the left well; right-column cards run on the right well.
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
-- The live preview stays in the **middle**; the first fifty loops are on the left, the rest on the right. Click a left card for the left well, a right card for the right well. **L** / **R** badges still send a loop to either side.
+- The live preview stays in the **middle**; the first fifty loops are on the left, the rest on the right.
 
 ### Games, Sketch, Marquee
 
@@ -60,20 +60,20 @@ To remove the menu entry and launcher (your clone stays on disk):
 | --- | --- |
 | **Flappy Bird** | Click the well, press Space / W / ↑ to flap. Autopilot until you take over. Default: left. |
 | **Fish tank** | Ambient loop. Default: right. |
-| **Snake** | Tap a **side of the well** (left/right/up/down), use the pad, or WASD / arrows. Auto-plays until you steer. |
-| **Pong** | You are the bright **bottom** paddle. Drag anywhere on the well or hold ← →. |
+| **Snake** | Tap a **side of the well** (left/right/up/down), or WASD / arrows. Auto-plays until you steer. |
+| **Pong** | You are the bright **bottom** paddle. Drag anywhere on the well or use ← →. |
 | **Game of Life** | Drag to paint live cells, Shift-drag to erase. R reseeds, P pauses. |
 | **Sketch** | **Drag on the well — one LED per pixel.** Shift-drag erases. C clears. |
 | **Falling sand** | Drag to pour sand. Shift-drag erases. C clears. |
-| **Breakout / Dodge** | Drag or ← → on the pad under the well. |
-| **Tetris** | Arrow pad under the well, or WASD. |
-| **Invaders** | ← → to move, Fire / Space to shoot. |
-| **Dino run / Flappy** | Flap button, click, or Space. |
-| **Marquee** | Type in the field under the well. Letters fill every column except the two on the sides. |
+| **Breakout / Dodge** | Drag or ← →. |
+| **Tetris** | WASD or arrows. |
+| **Invaders** | ← → to move, Space to shoot. |
+| **Dino run / Flappy** | Click or Space. |
+| **Marquee** | Type in the field under the well. Default text is FRAMEWORK. Letters enter at the top and loop down. |
 | **ECG** | A scrolling EKG trace (no heart icon). |
 | **Hearts** | Lots of falling hearts. |
 
-There are **100** animations. Each game has a control pad under its well so you can play without hunting for keys.
+There are **100** animations. Click a well, then use the keyboard for games.
 
 ## If left and right are swapped
 

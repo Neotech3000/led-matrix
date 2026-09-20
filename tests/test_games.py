@@ -85,6 +85,10 @@ class ExtraAnimTests(unittest.TestCase):
         self.assertTrue(lit)
         self.assertIn("HI", anim.text)
 
+    def test_marquee_defaults_to_framework(self):
+        anim = create_animation("marquee")
+        self.assertIn("FRAMEWORK", anim.text)
+
     def test_marquee_scrolls_down_from_the_top_and_loops(self):
         anim = create_animation("marquee")
         anim.set_text("A")
