@@ -1,6 +1,6 @@
 const WIDTH = 9;
 const HEIGHT = 34;
-const DRAG_IDS = new Set(["sketch", "life", "pong", "snake"]);
+const PIXELS = WIDTH * HEIGHT;
 const IGNORE_KEYS = new Set([
   "ShiftLeft",
   "ShiftRight",
@@ -20,8 +20,8 @@ const leftCanvas = document.getElementById("left");
 const rightCanvas = document.getElementById("right");
 const leftBezel = document.getElementById("left-bezel");
 const rightBezel = document.getElementById("right-bezel");
-const leftCtx = leftCanvas.getContext("2d");
-const rightCtx = rightCanvas.getContext("2d");
+const leftCtx = leftCanvas.getContext("2d", { alpha: false });
+const rightCtx = rightCanvas.getContext("2d", { alpha: false });
 const leftPill = document.getElementById("left-pill");
 const rightPill = document.getElementById("right-pill");
 const leftName = document.getElementById("left-name");
@@ -36,16 +36,35 @@ let catalog = [];
 let focus = "left";
 let drawing = null;
 let inputQueue = Promise.resolve();
+let lastLibKey = "";
+const pendingAnim = { left: null, right: null };
 let state = {
   left_anim: "flappy",
   right_anim: "fishtank",
   info: { left: {}, right: {} },
 };
+const lastPixels = {
+  left: new Array(PIXELS).fill(0),
+  right: new Array(PIXELS).fill(0),
+};
+const overlay = {
+  left: new Uint8Array(PIXELS),
+  right: new Uint8Array(PIXELS),
+};
+const overlayOn = {
+  left: new Uint8Array(PIXELS),
+  right: new Uint8Array(PIXELS),
+};
+
+function canvasSize(canvas) {
+  const cssW = canvas.clientWidth || 126;
+  const cssH = canvas.clientHeight || Math.round(cssW * (HEIGHT / WIDTH) * 0.92);
+  return { cssW, cssH };
+}
 
 function drawMatrix(ctx, canvas, pixels) {
   const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.clientWidth || 126;
-  const cssH = Math.round(cssW * (HEIGHT / WIDTH) * 0.92);
+  const { cssW, cssH } = canvasSize(canvas);
   if (canvas.width !== Math.floor(cssW * dpr) || canvas.height !== Math.floor(cssH * dpr)) {
     canvas.width = Math.floor(cssW * dpr);
     canvas.height = Math.floor(cssH * dpr);
@@ -108,21 +127,24 @@ function hudText(side, data) {
     const pilot = info.alive ? (info.auto ? "AUTO until you steer" : "YOU") : "DEAD";
     return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · arrows or WASD`;
   }
-  if (id === "pong") {
+  if (id === "pong" || id === "breakout") {
     const pilot = info.auto ? "AUTO" : "YOU";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · drag or A/D to move your paddle`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · drag or A/D`;
   }
   if (id === "life") {
     const mode = info.paused ? "PAUSED" : "LIVE";
     return `Gen ${info.gen ?? 0} · ${mode} · drag to paint, Shift-drag erases, R reseeds, P pauses`;
   }
   if (id === "sketch") {
-    return "Drag to draw. Shift-drag or right-drag erases. C / Esc / Delete clears.";
+    return "Drag on this well to draw. Shift-drag or right-drag erases. C / Esc / Delete clears.";
+  }
+  if (id === "sand") {
+    return "Drag to pour sand. Shift-drag erases. C clears.";
   }
   return item ? item.description : "";
 }
 
-function setFocus(side) {
+function setFocus(side, { rebuild = true } = {}) {
   focus = side;
   focusLabel.textContent = side;
   document.querySelectorAll(".side-btn").forEach((btn) => {
@@ -131,11 +153,11 @@ function setFocus(side) {
   document.querySelectorAll(".module").forEach((mod) => {
     mod.classList.toggle("focused", mod.dataset.side === side);
   });
-  lastLibKey = "";
-  maybeRenderLibrary();
+  if (rebuild) {
+    lastLibKey = "";
+    maybeRenderLibrary();
+  }
 }
-
-let lastLibKey = "";
 
 function maybeRenderLibrary() {
   const key = `${state.left_anim}|${state.right_anim}|${focus}|${catalog.map((c) => c.id).join(",")}`;
@@ -206,24 +228,33 @@ function post(path, body) {
   return inputQueue;
 }
 
+function clearOverlay(side) {
+  overlay[side].fill(0);
+  overlayOn[side].fill(0);
+}
+
 async function assign(side, id) {
   setFocus(side);
-  await post("/api/animation", { side, id });
+  pendingAnim[side] = id;
   state[`${side}_anim`] = id;
+  clearOverlay(side);
   lastLibKey = "";
   maybeRenderLibrary();
+  await post("/api/animation", { side, id });
 }
 
 function ledFromEvent(canvas, event) {
   const rect = canvas.getBoundingClientRect();
   const pad = 8;
   const gap = 3;
-  const usableW = rect.width - pad * 2;
-  const usableH = rect.height - pad * 2;
+  const usableW = Math.max(1, rect.width - pad * 2);
+  const usableH = Math.max(1, rect.height - pad * 2);
   const cellW = (usableW - gap * (WIDTH - 1)) / WIDTH;
   const cellH = (usableH - gap * (HEIGHT - 1)) / HEIGHT;
-  const x = Math.floor((event.clientX - rect.left - pad) / (cellW + gap));
-  const y = Math.floor((event.clientY - rect.top - pad) / (cellH + gap));
+  const strideW = cellW + gap;
+  const strideH = cellH + gap;
+  const x = Math.floor((event.clientX - rect.left - pad) / strideW);
+  const y = Math.floor((event.clientY - rect.top - pad) / strideH);
   return {
     x: Math.max(0, Math.min(WIDTH - 1, x)),
     y: Math.max(0, Math.min(HEIGHT - 1, y)),
@@ -234,45 +265,135 @@ function currentAnim(side) {
   return state[`${side}_anim`];
 }
 
+function wantsDrag(id) {
+  const item = catalog.find((c) => c.id === id);
+  if (item && item.drag) return true;
+  return ["sketch", "life", "pong", "snake", "sand", "breakout"].includes(id);
+}
+
+function lineCells(x0, y0, x1, y1) {
+  const cells = [];
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  let x = x0;
+  let y = y0;
+  while (true) {
+    cells.push({ x, y });
+    if (x === x1 && y === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y += sy;
+    }
+    if (cells.length > PIXELS) break;
+  }
+  return cells;
+}
+
+function paintLocal(side, x, y, erase) {
+  const anim = currentAnim(side);
+  const neighbors =
+    anim === "sketch"
+      ? [
+          [0, 0, erase ? 0 : 255],
+          [1, 0, erase ? 0 : 200],
+          [-1, 0, erase ? 0 : 200],
+          [0, 1, erase ? 0 : 200],
+          [0, -1, erase ? 0 : 200],
+        ]
+      : [[0, 0, erase ? 0 : 255]];
+  for (const [dx, dy, value] of neighbors) {
+    const xx = x + dx;
+    const yy = y + dy;
+    if (xx < 0 || yy < 0 || xx >= WIDTH || yy >= HEIGHT) continue;
+    const i = yy * WIDTH + xx;
+    overlay[side][i] = value;
+    overlayOn[side][i] = 1;
+    lastPixels[side][i] = value;
+  }
+}
+
+function mergeOverlay(side, pixels) {
+  const out = pixels.slice();
+  const on = overlayOn[side];
+  const vals = overlay[side];
+  for (let i = 0; i < PIXELS; i++) {
+    if (on[i]) out[i] = vals[i];
+  }
+  return out;
+}
+
+function reconcileOverlay(side, pixels) {
+  const on = overlayOn[side];
+  const vals = overlay[side];
+  for (let i = 0; i < PIXELS; i++) {
+    if (on[i] && pixels[i] === vals[i]) on[i] = 0;
+  }
+}
+
+function redraw(side) {
+  const canvas = side === "right" ? rightCanvas : leftCanvas;
+  const ctx = side === "right" ? rightCtx : leftCtx;
+  drawMatrix(ctx, canvas, lastPixels[side]);
+}
+
+function inkStroke(side, from, to, erase) {
+  const cells = from ? lineCells(from.x, from.y, to.x, to.y) : [to];
+  if (wantsDrag(currentAnim(side)) || currentAnim(side) === "sketch") {
+    for (const cell of cells) paintLocal(side, cell.x, cell.y, erase);
+    redraw(side);
+  }
+  const points = from ? [[from.x, from.y], [to.x, to.y]] : [[to.x, to.y]];
+  post("/api/stroke", { side, points, erase });
+}
+
 function onPointerDown(side, event) {
-  if (event.button === 1) return;
+  if (typeof event.button === "number" && event.button === 1) return;
   event.preventDefault();
-  setFocus(side);
-  const bezel = side === "right" ? rightBezel : leftBezel;
+  event.stopPropagation();
+  setFocus(side, { rebuild: false });
   const canvas = side === "right" ? rightCanvas : leftCanvas;
   const cell = ledFromEvent(canvas, event);
   const erase = event.shiftKey || event.button === 2;
-  drawing = { side, last: cell, erase, pointerId: event.pointerId };
+  drawing = {
+    side,
+    last: cell,
+    erase,
+    pointerId: event.pointerId,
+    paint: wantsDrag(currentAnim(side)),
+  };
+  const target = event.currentTarget;
   try {
-    bezel.setPointerCapture(event.pointerId);
+    target.setPointerCapture(event.pointerId);
   } catch {
-    /* older browsers still get pointermove on the bezel */
+    /* window listeners still track the drag */
   }
-  post("/api/stroke", { side, points: [[cell.x, cell.y]], erase });
+  inkStroke(side, null, cell, erase);
 }
 
-function onPointerMove(side, event) {
-  if (!drawing || drawing.side !== side) return;
-  if (drawing.pointerId !== event.pointerId) return;
+function onPointerMove(event) {
+  if (!drawing) return;
+  if (event.pointerId !== undefined && event.pointerId !== drawing.pointerId) return;
   event.preventDefault();
-  if (!DRAG_IDS.has(currentAnim(side))) return;
-  const canvas = side === "right" ? rightCanvas : leftCanvas;
+  if (!drawing.paint && !wantsDrag(currentAnim(drawing.side))) return;
+  const canvas = drawing.side === "right" ? rightCanvas : leftCanvas;
   const cell = ledFromEvent(canvas, event);
   if (cell.x === drawing.last.x && cell.y === drawing.last.y) return;
-  post("/api/stroke", {
-    side,
-    points: [
-      [drawing.last.x, drawing.last.y],
-      [cell.x, cell.y],
-    ],
-    erase: drawing.erase || event.shiftKey,
-  });
+  const erase = drawing.erase || event.shiftKey;
+  inkStroke(drawing.side, drawing.last, cell, erase);
   drawing.last = cell;
 }
 
 function onPointerUp(event) {
   if (!drawing) return;
-  if (event.pointerId !== drawing.pointerId) return;
+  if (event.pointerId !== undefined && event.pointerId !== drawing.pointerId) return;
   drawing = null;
 }
 
@@ -284,11 +405,22 @@ async function tick() {
     if (data.catalog && data.catalog.length) {
       catalog = data.catalog;
     }
-    state.left_anim = data.left_anim;
-    state.right_anim = data.right_anim;
+    for (const side of ["left", "right"]) {
+      const serverId = data[`${side}_anim`];
+      if (pendingAnim[side] && serverId === pendingAnim[side]) {
+        pendingAnim[side] = null;
+      }
+      if (!pendingAnim[side]) {
+        state[`${side}_anim`] = serverId;
+      }
+    }
     state.info = data.info || {};
-    drawMatrix(leftCtx, leftCanvas, data.left);
-    drawMatrix(rightCtx, rightCanvas, data.right);
+    for (const side of ["left", "right"]) {
+      reconcileOverlay(side, data[side]);
+      lastPixels[side] = mergeOverlay(side, data[side]);
+    }
+    drawMatrix(leftCtx, leftCanvas, lastPixels.left);
+    drawMatrix(rightCtx, rightCanvas, lastPixels.right);
     const leftItem = catalog.find((c) => c.id === data.left_anim);
     const rightItem = catalog.find((c) => c.id === data.right_anim);
     leftName.textContent = leftItem ? leftItem.name : data.left_anim;
@@ -309,17 +441,24 @@ document.querySelectorAll(".side-btn").forEach((btn) => {
   btn.addEventListener("click", () => setFocus(btn.dataset.focus));
 });
 
-for (const [side, bezel] of [
-  ["left", leftBezel],
-  ["right", rightBezel],
+for (const [side, bezel, canvas] of [
+  ["left", leftBezel, leftCanvas],
+  ["right", rightBezel, rightCanvas],
 ]) {
-  bezel.addEventListener("pointerdown", (event) => onPointerDown(side, event));
-  bezel.addEventListener("pointermove", (event) => onPointerMove(side, event));
-  bezel.addEventListener("pointerup", onPointerUp);
-  bezel.addEventListener("pointercancel", onPointerUp);
+  const down = (event) => onPointerDown(side, event);
+  canvas.addEventListener("pointerdown", down);
+  bezel.addEventListener("pointerdown", (event) => {
+    if (event.target === canvas) return;
+    down(event);
+  });
   bezel.addEventListener("contextmenu", (event) => event.preventDefault());
-  bezel.addEventListener("focus", () => setFocus(side));
+  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+  bezel.addEventListener("focus", () => setFocus(side, { rebuild: false }));
 }
+
+window.addEventListener("pointermove", onPointerMove);
+window.addEventListener("pointerup", onPointerUp);
+window.addEventListener("pointercancel", onPointerUp);
 
 window.addEventListener("keydown", (event) => {
   if (event.target && ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) {
@@ -334,6 +473,14 @@ window.addEventListener("keydown", (event) => {
     event.code === "Backspace"
   ) {
     event.preventDefault();
+  }
+  if (["KeyC", "Escape", "Delete", "Backspace"].includes(event.code)) {
+    const id = currentAnim(focus);
+    if (id === "sketch" || id === "sand") {
+      clearOverlay(focus);
+      lastPixels[focus] = new Array(PIXELS).fill(id === "sand" ? 6 : 0);
+      redraw(focus);
+    }
   }
   post("/api/key", { side: focus, code: event.code });
 });

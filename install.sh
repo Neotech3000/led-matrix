@@ -31,7 +31,7 @@ cp "$ROOT/packaging/led-matrix.svg" "$ICONS/led-matrix.svg"
 cat > "$APPS/led-matrix.desktop" <<DESK
 [Desktop Entry]
 Type=Application
-Version=1.3
+Version=1.4
 Name=LED Matrix
 Comment=Control the Framework Laptop 16 LED matrices
 Exec=$BIN/led-matrix

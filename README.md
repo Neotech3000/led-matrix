@@ -62,9 +62,11 @@ To remove the menu entry and launcher (your clone stays on disk):
 | **Snake** | Arrows or WASD. Auto-plays until you steer. Click/drag toward a direction also works. |
 | **Pong** | You are the bottom paddle. Drag left/right on the well or use A / D. |
 | **Game of Life** | Drag to paint live cells, Shift-drag to erase. R reseeds, P pauses. |
-| **Sketch** | **Drag on the well to draw.** Shift-drag or right-drag erases. C, Esc, or Delete clears. |
+| **Sketch** | **Drag on the well to draw.** Ink appears as you move. Shift-drag or right-drag erases. C, Esc, or Delete clears. |
+| **Falling sand** | Drag to pour sand. Shift-drag erases. C clears. |
+| **Breakout** | Drag or A/D. Auto until you take over. |
 
-Looping effects (digital rain, campfire, starfield, plasma, rainstorm, equalizer, warp, scanner, sparkler, ripple, breathe) just run until you pick something else.
+There are **30** animations: the games above plus looping effects (digital rain, campfire, starfield, plasma, rainstorm, equalizer, warp, scanner, sparkler, ripple, breathe, snowfall, lightning, aurora, fountain, helix, TV static, comet, pendulum, waves, fireflies, kaleidoscope).
 
 ## If left and right are swapped
 

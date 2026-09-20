@@ -3,6 +3,7 @@ import threading
 import unittest
 from http.client import HTTPConnection
 
+from matrix_deck import HEIGHT
 from matrix_deck.anim import create_animation
 from matrix_deck.canvas import Canvas, line_cells
 from matrix_deck.engine import Deck
@@ -42,6 +43,24 @@ class SketchTests(unittest.TestCase):
         sketch.click(3, 3)
         sketch.key("KeyC")
         self.assertEqual(sum(sketch.pixels), 0)
+
+
+class ExtraAnimTests(unittest.TestCase):
+    def test_sand_pours_and_falls(self):
+        anim = create_animation("sand")
+        anim.click(4, 2)
+        self.assertGreater(sum(anim.cells), 0)
+        canvas = Canvas()
+        for _ in range(80):
+            anim.step(0.05, canvas)
+        bottom = sum(anim.cells[(HEIGHT - 1) * 9 : HEIGHT * 9])
+        self.assertGreater(bottom, 0)
+
+    def test_breakout_drag_takes_over(self):
+        anim = create_animation("breakout")
+        anim.stroke([(6, 30)])
+        self.assertFalse(anim.auto)
+
 
 
 class GameInputTests(unittest.TestCase):

@@ -12,6 +12,7 @@ class Animation:
     name = ""
     description = ""
     kind = "loop"  # loop | game | sketch
+    drag = False
 
     def step(self, dt: float, canvas: Canvas) -> None:
         raise NotImplementedError
@@ -44,6 +45,7 @@ class Animation:
             "name": self.name,
             "description": self.description,
             "kind": self.kind,
+            "drag": self.drag,
         }
 
 
@@ -59,12 +61,25 @@ def animation_order() -> list[str]:
         "rain",
         "snake",
         "pong",
+        "breakout",
         "eq",
         "warp",
         "scanner",
         "sparkle",
         "ripple",
         "breathe",
+        "snow",
+        "lightning",
+        "aurora",
+        "fountain",
+        "helix",
+        "static",
+        "comet",
+        "pendulum",
+        "wave",
+        "fireflies",
+        "kaleido",
+        "sand",
         "sketch",
     ]
 
@@ -89,6 +104,19 @@ def factories() -> dict[str, type[Animation]]:
         "sparkle": effects.Sparkler,
         "ripple": effects.Ripple,
         "breathe": effects.Breathe,
+        "snow": effects.Snowfall,
+        "lightning": effects.Lightning,
+        "aurora": effects.Aurora,
+        "fountain": effects.Fountain,
+        "helix": effects.Helix,
+        "static": effects.TvStatic,
+        "comet": effects.Comet,
+        "pendulum": effects.Pendulum,
+        "wave": effects.OceanWave,
+        "fireflies": effects.Fireflies,
+        "kaleido": effects.Kaleidoscope,
+        "sand": effects.FallingSand,
+        "breakout": effects.Breakout,
         "sketch": effects.Sketch,
     }
 
@@ -110,6 +138,7 @@ def catalog_meta() -> list[dict]:
                 "name": cls.name,
                 "description": cls.description,
                 "kind": cls.kind,
+                "drag": cls.drag,
             }
         )
     return items
