@@ -1,6 +1,6 @@
 """Animations for the Framework Laptop 16 LED Matrix input modules."""
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 
 WIDTH = 9
 HEIGHT = 34
