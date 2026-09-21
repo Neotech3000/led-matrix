@@ -59,7 +59,7 @@ html, body {
 .search-field {
   position: relative;
   display: block;
-  width: 220px;
+  width: 168px;
   background: #101218;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -118,6 +118,30 @@ html, body {
 }
 .search-fill.hidden { display: none; }
 .search-fill:hover { border-color: var(--orange); }
+.type-filters {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.type-filter {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.type-filter:hover { border-color: rgba(255, 116, 79, 0.55); color: var(--ink); }
+.type-filter.on {
+  border-color: rgba(255, 116, 79, 0.75);
+  color: var(--ink);
+  background: rgba(255, 116, 79, 0.16);
+}
 .meter {
   display: flex;
   align-items: center;
@@ -354,6 +378,6 @@ canvas {
   }
   .stage { grid-template-columns: 1fr 1fr; gap: 12px; }
   .meter input[type="range"] { width: 180px; }
-  .search-field { width: 160px; }
+  .search-field { width: 148px; }
   .top { padding-left: 12px; padding-right: 12px; }
 }

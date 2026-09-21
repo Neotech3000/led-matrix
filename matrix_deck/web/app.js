@@ -34,6 +34,7 @@ const randomBtn = document.getElementById("random-btn");
 const searchEl = document.getElementById("search");
 const searchGhost = document.getElementById("search-ghost");
 const searchFill = document.getElementById("search-fill");
+const typeFilters = document.getElementById("type-filters");
 const libraryLeft = document.getElementById("library-left");
 const libraryRight = document.getElementById("library-right");
 const leftText = document.getElementById("left-text");
@@ -43,6 +44,7 @@ const rightMarquee = document.getElementById("right-marquee");
 
 let catalog = [];
 let searchQuery = "";
+let kindFilter = "";
 let focus = "left";
 let drawing = null;
 let inputQueue = Promise.resolve();
@@ -213,7 +215,7 @@ function setFocus(side, { rebuild = true } = {}) {
 }
 
 function maybeRenderLibrary() {
-  const key = `${state.left_anim}|${state.right_anim}|${focus}|${searchQuery}|${catalog.map((c) => c.id).join(",")}`;
+  const key = `${state.left_anim}|${state.right_anim}|${focus}|${searchQuery}|${kindFilter}|${catalog.map((c) => c.id).join(",")}`;
   if (key === lastLibKey) return;
   lastLibKey = key;
   renderLibrary();
@@ -306,11 +308,17 @@ function fuzzyScore(query, item) {
   return best;
 }
 
+function visibleCatalog() {
+  if (!kindFilter) return catalog;
+  return catalog.filter((item) => item.kind === kindFilter);
+}
+
 function rankedCatalog() {
+  const items = visibleCatalog();
   const q = searchQuery.trim();
-  if (!q) return catalog.map((item) => ({ item, score: 1 }));
+  if (!q) return items.map((item) => ({ item, score: 1 }));
   const ranked = [];
-  for (const item of catalog) {
+  for (const item of items) {
     const score = fuzzyScore(q, item);
     if (score > 0) ranked.push({ item, score });
   }
@@ -369,9 +377,10 @@ function renderLibrary() {
   if (!catalog.length) return;
   const q = searchQuery.trim();
   if (!q) {
-    const mid = Math.ceil(catalog.length / 2);
-    fillLibrary(libraryLeft, catalog.slice(0, mid), "left");
-    fillLibrary(libraryRight, catalog.slice(mid), "right");
+    const items = visibleCatalog();
+    const mid = Math.ceil(items.length / 2);
+    fillLibrary(libraryLeft, items.slice(0, mid), "left");
+    fillLibrary(libraryRight, items.slice(mid), "right");
     return;
   }
   const items = rankedCatalog().map((row) => row.item);
@@ -647,7 +656,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn, .search-wrap, .search-fill")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -828,6 +837,33 @@ searchEl.addEventListener("keydown", (event) => {
 });
 
 searchFill.addEventListener("click", () => acceptSearch(false));
+
+function setKindFilter(kind) {
+  kindFilter = kind || "";
+  if (typeFilters) {
+    typeFilters.querySelectorAll(".type-filter").forEach((btn) => {
+      const selected = (btn.dataset.kind || "") === kindFilter;
+      btn.classList.toggle("on", selected);
+      btn.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  }
+  lastLibKey = "";
+  updateSearchChrome();
+  maybeRenderLibrary();
+}
+
+if (typeFilters) {
+  typeFilters.addEventListener("pointerdown", (event) => {
+    if (event.target && event.target.closest && event.target.closest(".type-filter")) {
+      event.preventDefault();
+    }
+  });
+  typeFilters.addEventListener("click", (event) => {
+    const btn = event.target && event.target.closest && event.target.closest(".type-filter");
+    if (!btn) return;
+    setKindFilter(btn.dataset.kind || "");
+  });
+}
 
 function bindText(input, side) {
   const send = () => post("/api/text", { side, text: input.value });

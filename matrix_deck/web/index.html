@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LED Matrix</title>
-    <link rel="stylesheet" href="/style.css?v=1.8.0" />
+    <link rel="stylesheet" href="/style.css?v=1.8.1" />
   </head>
   <body>
     <header class="top">
@@ -27,6 +27,12 @@
             />
           </label>
           <button type="button" class="search-fill hidden" id="search-fill" title="Use this match"></button>
+        </div>
+        <div class="type-filters" id="type-filters" role="group" aria-label="Filter by type">
+          <button type="button" class="type-filter on" data-kind="" id="type-all" tabindex="-1" aria-pressed="true">All</button>
+          <button type="button" class="type-filter" data-kind="game" id="type-game" tabindex="-1" aria-pressed="false">(Game)</button>
+          <button type="button" class="type-filter" data-kind="loop" id="type-loop" tabindex="-1" aria-pressed="false">(Loop)</button>
+          <button type="button" class="type-filter" data-kind="sketch" id="type-draw" tabindex="-1" aria-pressed="false">(Draw)</button>
         </div>
         <label class="meter">
           Brightness
@@ -114,6 +120,6 @@
       </section>
     </div>
 
-    <script src="/app.js?v=1.8.0"></script>
+    <script src="/app.js?v=1.8.1"></script>
   </body>
 </html>

@@ -73,6 +73,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
 - **Search** sits to the left of Brightness. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
+- Compact type chips **All** **(Game)** **(Loop)** **(Draw)** sit next to Search and filter the library; fuzzy search still applies on top of the selected type.
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop.
 - The live preview stays in the **middle**; half the catalog is on the left, the rest on the right.
 
