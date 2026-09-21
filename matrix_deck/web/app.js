@@ -201,7 +201,7 @@ function hudText(side, data) {
     return `Local time ${info.time || ""}`.trim() + " · hours, minutes, then seconds.";
   }
   const UTILITY_HINTS = {
-    timer: `${info.running ? "RUN" : info.done ? "DONE" : "PAUSE"} ${info.remaining || "01:00"} · click/space start-pause · ↑↓ or +− add 30s · C/R reset to 60s`,
+    timer: `${info.running ? "RUN" : info.done ? "DONE" : "PAUSE"} ${info.remaining || "01:00"} · click/space start-pause · up/down or +/- add 30s · C/R reset to 60s`,
     pomodoro: `${(info.phase || "work").toUpperCase()} ${info.remaining || ""} · click/space start-pause · C/R reset · 25 then 5`,
     stopwatch: `${info.running ? "RUN" : "PAUSE"} ${info.elapsed || "00:00"} · click/space start-pause · C/R zero`,
     utc: `UTC ${info.time || ""} · same stacked digits as Clock`,
