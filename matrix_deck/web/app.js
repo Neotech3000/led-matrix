@@ -37,6 +37,9 @@ const leftText = document.getElementById("left-text");
 const rightText = document.getElementById("right-text");
 const leftMarquee = document.getElementById("left-marquee");
 const rightMarquee = document.getElementById("right-marquee");
+const searchInput = document.getElementById("search");
+const searchGhost = document.getElementById("search-ghost");
+const searchFill = document.getElementById("search-fill");
 
 let catalog = [];
 let focus = "left";
@@ -129,6 +132,9 @@ function hudText(side, data) {
     const pilot = info.alive ? (info.auto ? "AUTO" : "YOU") : "CRASH";
     return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, space, or ↑ to flap`;
   }
+  if (id === "clock") {
+    return `Local time ${info.time || "??:??:??"} on the well`;
+  }
   if (id === "snake") {
     const pilot = info.alive ? (info.auto ? "AUTO until you steer" : "YOU") : "DEAD";
     return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · tap a side of the well, or arrows / WASD`;
@@ -179,10 +185,105 @@ function setFocus(side, { rebuild = true } = {}) {
 }
 
 function maybeRenderLibrary() {
-  const key = `${state.left_anim}|${state.right_anim}|${focus}|${catalog.map((c) => c.id).join(",")}`;
+  const key = `${state.left_anim}|${state.right_anim}|${focus}|${catalog.map((c) => c.id).join(",")}|${searchInput.value.trim()}`;
   if (key === lastLibKey) return;
   lastLibKey = key;
   renderLibrary();
+}
+
+function fuzzyDistance(query, text) {
+  const a = String(query || "").toLowerCase();
+  const b = String(text || "").toLowerCase();
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+function subsequencePoints(query, text) {
+  const q = String(query || "").toLowerCase();
+  const s = String(text || "").toLowerCase();
+  if (!q.length) return 0;
+  let li = 0;
+  for (let i = 0; i < q.length; i++) {
+    const at = s.indexOf(q[i], li);
+    if (at === -1) return -1;
+    li = at + 1;
+  }
+  return Math.max(0, q.length - (li - q.length));
+}
+
+function fuzzyScore(query, item) {
+  const q = String(query || "").trim().toLowerCase();
+  const name = item.name.toLowerCase();
+  const id = item.id.toLowerCase();
+  const desc = item.description.toLowerCase();
+  if (name === q) return 1000;
+  if (id === q) return 950;
+  let best = 0;
+  if (name.startsWith(q)) best = Math.max(best, 600 + Math.min(60, q.length * 2));
+  else if (id.startsWith(q)) best = Math.max(best, 520 + Math.min(60, q.length * 2));
+  const inName = subsequencePoints(q, name);
+  if (inName >= 0) best = Math.max(best, 300 + inName);
+  const inId = subsequencePoints(q, id);
+  if (inId >= 0) best = Math.max(best, 260 + inId);
+  const ld = Math.min(fuzzyDistance(q, name), fuzzyDistance(q, id));
+  if (ld <= 2) best = Math.max(best, 430 - ld * 100);
+  if (name.includes(q)) best = Math.max(best, 150 + q.length);
+  if (desc.includes(q) || subsequencePoints(q, desc) >= 0) best = Math.max(best, 60 + q.length);
+  return best;
+}
+
+function rankedSearch() {
+  const query = searchInput.value.trim().toLowerCase();
+  if (!query) return [];
+  return catalog
+    .map((item) => ({ item, score: fuzzyScore(query, item) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name));
+}
+
+function updateSearch() {
+  const query = searchInput.value.trim().toLowerCase();
+  const ranked = rankedSearch();
+  const best = ranked.length ? ranked[0].item : null;
+  const isPrefix = !!(query && best && best.name.toLowerCase().startsWith(query));
+  if (best && isPrefix) {
+    searchGhost.textContent = best.name;
+    searchFill.hidden = true;
+  } else if (best) {
+    searchGhost.textContent = "";
+    searchFill.hidden = false;
+    searchFill.textContent = best.name;
+  } else {
+    searchGhost.textContent = "";
+    searchFill.hidden = true;
+  }
+}
+
+function acceptSearchSuggestion() {
+  const ranked = rankedSearch();
+  if (!ranked.length) return;
+  searchInput.value = ranked[0].item.name;
+  searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+  updateSearch();
+  lastLibKey = "";
+  maybeRenderLibrary();
+}
+
+function showEmptySearch(root) {
+  root.innerHTML = "";
+  const div = document.createElement("div");
+  div.className = "empty";
+  div.textContent = "No animations match.";
+  root.appendChild(div);
 }
 
 function kindLabel(kind) {
@@ -193,6 +294,19 @@ function kindLabel(kind) {
 
 function renderLibrary() {
   if (!catalog.length) return;
+  const query = searchInput.value.trim().toLowerCase();
+  if (query) {
+    const ranked = rankedSearch();
+    if (!ranked.length) {
+      showEmptySearch(libraryLeft);
+      showEmptySearch(libraryRight);
+      return;
+    }
+    const items = ranked.map((entry) => entry.item);
+    fillLibrary(libraryLeft, items, "left");
+    fillLibrary(libraryRight, items, "right");
+    return;
+  }
   const mid = Math.ceil(catalog.length / 2);
   fillLibrary(libraryLeft, catalog.slice(0, mid), "left");
   fillLibrary(libraryRight, catalog.slice(mid), "right");
@@ -438,7 +552,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn, .search-wrap, .search-fill")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -579,6 +693,45 @@ randomBtn.addEventListener("click", () => {
   randomBtn.classList.toggle("on", on);
   randomBtn.textContent = on ? "Random · on" : "Random";
   post("/api/random", { enabled: on });
+});
+
+searchInput.addEventListener("input", () => {
+  updateSearch();
+  lastLibKey = "";
+  maybeRenderLibrary();
+});
+
+searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Tab") {
+    event.preventDefault();
+    acceptSearchSuggestion();
+  } else if (event.key === "ArrowRight" && searchInput.selectionStart === searchInput.value.length) {
+    event.preventDefault();
+    acceptSearchSuggestion();
+  } else if (event.key === "Escape") {
+    searchInput.value = "";
+    searchGhost.textContent = "";
+    searchFill.hidden = true;
+    lastLibKey = "";
+    maybeRenderLibrary();
+    searchInput.blur();
+  } else if (event.key === "Enter") {
+    const ranked = rankedSearch();
+    if (ranked.length) {
+      assign(focus, ranked[0].item.id);
+      searchInput.value = "";
+      searchGhost.textContent = "";
+      searchFill.hidden = true;
+      lastLibKey = "";
+      maybeRenderLibrary();
+      searchInput.blur();
+    }
+  }
+});
+
+searchFill.addEventListener("click", () => {
+  acceptSearchSuggestion();
+  searchInput.focus();
 });
 
 function bindText(input, side) {

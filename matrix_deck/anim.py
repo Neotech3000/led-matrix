@@ -50,11 +50,13 @@ class Animation:
 
 
 def animation_order() -> list[str]:
-    from matrix_deck.pack import animation_ids
+    from matrix_deck.pack import animation_ids as pack_ids
+    from matrix_deck.pack2 import animation_ids as pack2_ids
 
     core = [
         "flappy",
         "fishtank",
+        "clock",
         "raincode",
         "fire",
         "stars",
@@ -105,15 +107,16 @@ def animation_order() -> list[str]:
         "bounce",
         "marquee",
     ]
-    return core + animation_ids()
+    return core + pack_ids() + pack2_ids()
 
 
 def factories() -> dict[str, type[Animation]]:
-    from matrix_deck import effects, extra, pack
+    from matrix_deck import effects, extra, pack, pack2
 
     table: dict[str, type[Animation]] = {
         "flappy": FlappyAnim,
         "fishtank": FishAnim,
+        "clock": extra.Clock,
         "raincode": effects.MatrixRain,
         "fire": effects.Campfire,
         "stars": effects.Starfield,
@@ -165,10 +168,11 @@ def factories() -> dict[str, type[Animation]]:
         "dodge": extra.Dodge,
     }
     table.update(pack.factories())
+    table.update(pack2.factories())
     return table
 
 
-ALIASES = {"candle": "hourglass", "heart": "ecg", "heartbeat": "ecg"}
+ALIASES = {"candle": "hourglass", "heart": "ecg", "heartbeat": "ecg", "time": "clock", "watch": "clock"}
 
 
 def create_animation(anim_id: str) -> Animation:

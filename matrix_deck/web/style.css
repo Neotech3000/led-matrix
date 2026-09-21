@@ -50,6 +50,59 @@ html, body {
   align-items: center;
   flex-wrap: wrap;
 }
+.search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search-wrap input {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  padding: 8px 14px;
+  width: 170px;
+  outline: none;
+}
+.search-wrap input:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 1px rgba(255, 116, 79, 0.35);
+}
+.search-wrap input::placeholder { color: var(--muted); }
+.search-ghost {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: rgba(244, 241, 234, 0.3);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-fill {
+  appearance: none;
+  font: inherit;
+  font-size: 0.72rem;
+  border: 1px solid rgba(255, 116, 79, 0.45);
+  background: rgba(255, 116, 79, 0.12);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-fill:hover { border-color: var(--orange); }
+.search-fill[hidden] { display: none; }
 .meter {
   display: flex;
   align-items: center;
@@ -227,6 +280,14 @@ canvas {
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
+}
+.empty {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 22px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
 }
 
 .card {

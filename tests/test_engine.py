@@ -60,17 +60,19 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(deck.random_mode)
         self.assertEqual(deck.left_id, "fire")
 
-    def test_catalog_has_one_hundred_unique_animations(self):
+    def test_catalog_has_two_hundred_and_one_unique_animations(self):
         items = catalog_meta()
         ids = [item["id"] for item in items]
-        self.assertEqual(len(ids), 100)
-        self.assertEqual(len(set(ids)), 100)
+        self.assertEqual(len(ids), 201)
+        self.assertEqual(len(set(ids)), 201)
         self.assertTrue(all("drag" in item for item in items))
         self.assertTrue(next(item for item in items if item["id"] == "sketch")["drag"])
         self.assertIn("ecg", ids)
         self.assertIn("hearts", ids)
         self.assertIn("hourglass", ids)
         self.assertIn("marquee", ids)
+        self.assertIn("clock", ids)
+        self.assertIn("pine", ids)
         self.assertNotIn("candle", ids)
         self.assertNotIn("heart", ids)
         canvas = Canvas()
@@ -79,6 +81,32 @@ class EngineTests(unittest.TestCase):
             anim.step(0.05, canvas)
             anim.step(0.05, canvas)
             self.assertEqual(item["id"], anim.id)
+
+    def test_clock_is_loop_and_aliases_resolve(self):
+        items = catalog_meta()
+        clock_meta = next(item for item in items if item["id"] == "clock")
+        self.assertEqual(clock_meta["name"], "Clock")
+        self.assertEqual(clock_meta["kind"], "loop")
+        self.assertEqual(create_animation("time").id, "clock")
+        self.assertEqual(create_animation("watch").id, "clock")
+
+    def test_clock_shows_wall_clock_time(self):
+        from datetime import datetime
+        from unittest import mock
+
+        frozen = datetime(2026, 3, 4, 12, 34, 56, 250000)
+        with mock.patch("matrix_deck.extra.datetime") as mock_dt:
+            mock_dt.now.return_value = frozen
+            anim = create_animation("clock")
+            canvas = Canvas()
+            anim.step(0.05, canvas)
+            self.assertEqual(anim.info()["time"], "12:34:56")
+            pixels = canvas.pixels
+            on = sum(1 for v in pixels if v > 0)
+            self.assertGreater(on, 40)
+            digit = {x: v for x, v in enumerate(pixels[0:9])}
+            self.assertGreater(digit[3], 0)
+            self.assertGreater(digit[5], 0)
 
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
@@ -90,6 +118,10 @@ class EngineTests(unittest.TestCase):
         self.assertIn("library-right", html)
         self.assertIn('id="speed"', html)
         self.assertIn("random-btn", html)
+        self.assertIn('id="search"', html)
+        self.assertIn("search-ghost", html)
+        self.assertIn("search-fill", html)
+        self.assertIn("search-wrap", html)
         self.assertNotIn("<button type=\"button\" class=\"bezel\"", html)
         js = (WEB_ROOT / "app.js").read_text()
         self.assertIn("/api/stroke", js)
@@ -97,6 +129,11 @@ class EngineTests(unittest.TestCase):
         self.assertIn("/api/speed", js)
         self.assertIn("/api/text", js)
         self.assertIn("/api/random", js)
+        self.assertIn("fuzzyScore", js)
+        self.assertIn("rankedSearch", js)
+        self.assertIn("acceptSearchSuggestion", js)
+        self.assertIn("searchGhost", js)
+        self.assertIn("searchFill", js)
         self.assertIn("paintsInk", js)
         self.assertIn("showMarqueeFields", js)
         self.assertIn("pointermove", js)

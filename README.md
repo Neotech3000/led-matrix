@@ -52,8 +52,9 @@ To remove the menu entry and launcher (your clone stays on disk):
 - Left-column cards run on the left well; right-column cards run on the right well.
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
+- The **Search** box sits just left of Brightness. Type a name and both libraries filter to the best fuzzy matches (typos welcome — `clok` finds Clock); Tab or → accepts the ghost completion, Enter assigns the top hit to the focused well, Esc clears. Left column still feeds the left well and right column the right well.
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop.
-- The live preview stays in the **middle**; the first fifty loops are on the left, the rest on the right.
+- The live preview stays in the **middle**; the first hundred loops are on the left, the rest on the right.
 
 ### Games, Sketch, Marquee
 
@@ -71,10 +72,11 @@ To remove the menu entry and launcher (your clone stays on disk):
 | **Invaders** | ← → to move, Space to shoot. |
 | **Dino run / Flappy** | Click or Space. |
 | **Marquee** | Type in the field under the well. Default text is FRAMEWORK. Letters enter at the top and loop down. |
+| **Clock** | Local time: hours, minutes, then seconds, with a progress bar through the minute. |
 | **ECG** | A scrolling EKG trace (no heart icon). |
 | **Hearts** | Lots of falling hearts. |
 
-There are **100** animations. Click a well, then use the keyboard for games.
+There are **201** animations (**Clock** and **Search** arrived in v1.7.0). Click a well, then use the keyboard for games.
 
 ## If left and right are swapped
 

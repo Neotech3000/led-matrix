@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import random
+from datetime import datetime
 
 from matrix_deck import HEIGHT, PIXELS, WIDTH
 from matrix_deck.anim import Animation
@@ -12,6 +13,66 @@ from matrix_deck.canvas import Canvas
 
 def _clamp(v: float) -> int:
     return max(0, min(255, int(v)))
+
+
+class Clock(Animation):
+    id = "clock"
+    name = "Clock"
+    description = "Local time on the well: hours, minutes, then seconds."
+    kind = "loop"
+
+    DIGITS = {
+        "0": ("####", "#..#", "#..#", "#..#", "#..#", "#..#", "####"),
+        "1": (".##.", ".###", "..#.", "..#.", "..#.", "..#.", "####"),
+        "2": ("####", "...#", "...#", "####", "#...", "#...", "####"),
+        "3": ("####", "...#", "...#", ".###", "...#", "...#", "####"),
+        "4": ("#..#", "#..#", "#..#", "####", "...#", "...#", "...#"),
+        "5": ("####", "#...", "#...", "####", "...#", "...#", "####"),
+        "6": ("####", "#...", "#...", "####", "#..#", "#..#", "####"),
+        "7": ("####", "...#", "...#", "..#.", "..#.", "..#.", "..#."),
+        "8": ("####", "#..#", "#..#", "####", "#..#", "#..#", "####"),
+        "9": ("####", "#..#", "#..#", "####", "...#", "...#", "####"),
+    }
+
+    def __init__(self) -> None:
+        self.t = 0.0
+
+    @staticmethod
+    def _glyph(ch: str) -> tuple[str, ...]:
+        return Clock.DIGITS[ch]
+
+    def _paint_digit(self, canvas: Canvas, ch: str, ox: int, oy: int) -> None:
+        for dy, row in enumerate(self._glyph(ch)):
+            for dx, cell in enumerate(row):
+                if cell == "#":
+                    canvas.blend(ox + dx, oy + dy, 255)
+
+    def step(self, dt: float, canvas: Canvas) -> None:
+        # Wall-clock time only: speed and dt must never change the displayed time.
+        del dt
+        now = datetime.now()
+        canvas.clear(2)
+        hour = f"{now.hour:02d}"
+        minute = f"{now.minute:02d}"
+        second = f"{now.second:02d}"
+        for text, y in ((hour, 1), (minute, 10), (second, 19)):
+            self._paint_digit(canvas, text[0], 0, y)
+            self._paint_digit(canvas, text[1], 5, y)
+        if now.microsecond < 500_000:
+            for y in (8, 17):
+                canvas.blend(4, y, 230)
+                canvas.blend(4, y + 1, 140)
+        secs = now.second + now.microsecond / 1_000_000.0
+        fill = secs / 60.0 * WIDTH
+        for x in range(WIDTH):
+            frac = min(1.0, max(0.0, fill - x))
+            v = int(255 * frac)
+            if v > 0:
+                canvas.blend(x, HEIGHT - 2, v)
+                canvas.blend(x, HEIGHT - 1, v // 2)
+
+    def info(self) -> dict:
+        return {"time": datetime.now().strftime("%H:%M:%S")}
 
 
 class Radar(Animation):

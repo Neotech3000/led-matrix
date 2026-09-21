@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LED Matrix</title>
-    <link rel="stylesheet" href="/style.css?v=1.6.5" />
+    <link rel="stylesheet" href="/style.css?v=1.7.0" />
   </head>
   <body>
     <header class="top">
@@ -13,6 +13,11 @@
         <span class="pill" id="right-pill">Right · connecting</span>
       </div>
       <div class="meters">
+        <div class="search-wrap">
+          <span class="search-ghost" id="search-ghost" aria-hidden="true"></span>
+          <input id="search" type="text" placeholder="Search" autocomplete="off" spellcheck="false" />
+          <button type="button" class="search-fill" id="search-fill" hidden title="Accept the best match"></button>
+        </div>
         <label class="meter">
           Brightness
           <input id="brightness" type="range" min="10" max="255" value="180" />
@@ -99,6 +104,6 @@
       </section>
     </div>
 
-    <script src="/app.js?v=1.6.5"></script>
+    <script src="/app.js?v=1.7.0"></script>
   </body>
 </html>
