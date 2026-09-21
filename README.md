@@ -15,30 +15,50 @@ Not an official Framework Computer product. MIT licensed.
 
 ## Install
 
-```bash
-git clone https://github.com/<you>/led-matrix.git
-cd led-matrix
-chmod +x install.sh uninstall.sh run
-./install.sh
-```
+Copy the project from GitHub, then run the installer **from inside that clone**. The launcher always `cd`s back into this folder, so keep it where you put it (do not rewrite files by hand in a second copy).
+
+1. `git clone https://github.com/Neotech3000/led-matrix.git` — downloads the app into a `led-matrix` folder.
+2. `cd led-matrix` — moves into that folder (later updates use this same folder).
+3. `chmod +x install.sh uninstall.sh run` — makes the scripts executable.
+4. `./install.sh` — installs the desktop app. Needs **Python 3.11+**. It will ask for your password **once** if the udev rule is not already on the machine.
+
+What success looks like: an **LED Matrix** item in the app menu, and both wells light when you open it.
 
 The script:
 
-1. Puts `led-matrix` on your `PATH` (`~/.local/bin`)
-2. Adds an **LED Matrix** entry to the app menu
-3. Asks for your password **once** to install a udev rule so the modules work without root
+1. Writes `~/.local/bin/led-matrix`. That launcher `cd`s into **this clone** and runs `python3 -m matrix_deck --gui --host 127.0.0.1 --port 43173`.
+2. Adds an **LED Matrix** menu entry (press **Super**, the logo key, then type **LED Matrix**).
+3. Installs a udev rule with `sudo` **only if** `/etc/udev/rules.d/50-framework-led-matrix.rules` is missing, so the modules work without root.
+4. May append `~/.local/bin` to your `PATH` in `~/.bashrc` or `~/.zshrc` if that line is not already there.
 
-Then press **Super** (the logo key) and type **LED Matrix**. Or run:
+Then press **Super** and type **LED Matrix**. Or run:
 
 ```bash
 led-matrix
 ```
 
-To remove the menu entry and launcher (your clone stays on disk):
+No pip. No `pyserial`.
+
+### Update from GitHub
+
+Stay in the **same clone** you installed from. `git pull` is enough; do not install a second copy or rewrite features by hand.
+
+1. `cd` into that `led-matrix` folder.
+2. `git pull` — fetches the latest code into this folder (the launcher already points here).
+3. **Fully quit** the old LED Matrix window. If you skip this, the old process on port **43173** keeps serving the stale UI — that is the usual reason “I pulled and nothing changed.”
+4. Open **LED Matrix** from the app menu again (or run `led-matrix`).
+
+You do not need to re-run `./install.sh` after a pull unless you deleted the launcher.
+
+### Uninstall
+
+From inside the clone:
 
 ```bash
 ./uninstall.sh
 ```
+
+That removes the `led-matrix` launcher, the app-menu entry, and the icon. It does **not** delete your git clone and does **not** remove the udev rule.
 
 ### First-time Linux notes
 
