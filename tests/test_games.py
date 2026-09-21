@@ -172,6 +172,71 @@ class ExtraAnimTests(unittest.TestCase):
 
 
 
+class NewGameSmokeTests(unittest.TestCase):
+    GAMES = (
+        "frogger",
+        "asteroids",
+        "centipede",
+        "space-shooter",
+        "brick-stack",
+        "catcher",
+        "whack",
+        "slither",
+        "racetrack",
+        "jumper",
+        "sokoban",
+        "minesweeper",
+        "memory",
+        "lights-out",
+        "2048",
+        "connect4",
+        "simon",
+        "rhythm",
+        "cannons",
+        "pinball-game",
+    )
+    INPUTS = {
+        "frogger": ("key", "ArrowUp"),
+        "asteroids": ("key", "Space"),
+        "centipede": ("key", "Space"),
+        "space-shooter": ("key", "Space"),
+        "brick-stack": ("key", "Space"),
+        "catcher": ("key", "ArrowLeft"),
+        "whack": ("click", (4, 10)),
+        "slither": ("key", "ArrowRight"),
+        "racetrack": ("key", "ArrowLeft"),
+        "jumper": ("key", "Space"),
+        "sokoban": ("key", "ArrowRight"),
+        "minesweeper": ("click", (4, 4)),
+        "memory": ("click", (1, 1)),
+        "lights-out": ("click", (4, 14)),
+        "2048": ("key", "ArrowLeft"),
+        "connect4": ("key", "Space"),
+        "simon": ("click", (2, 8)),
+        "rhythm": ("key", "Space"),
+        "cannons": ("click", (4, 10)),
+        "pinball-game": ("key", "Space"),
+    }
+
+    def test_twenty_new_games_step_and_take_input(self):
+        canvas = Canvas()
+        for anim_id in self.GAMES:
+            anim = create_animation(anim_id)
+            self.assertEqual(anim.id, anim_id)
+            self.assertEqual(anim.kind, "game")
+            anim.step(0.05, canvas)
+            anim.step(0.05, canvas)
+            self.assertTrue(anim.auto)
+            kind, payload = self.INPUTS[anim_id]
+            if kind == "key":
+                anim.key(payload)
+            else:
+                anim.click(*payload)
+            self.assertFalse(anim.auto, msg=anim_id)
+            self.assertIn("score", anim.info())
+            anim.step(0.05, canvas)
+
+
 class GameInputTests(unittest.TestCase):
     def test_flappy_space_takes_over(self):
         anim = create_animation("flappy")

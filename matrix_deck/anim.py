@@ -70,6 +70,26 @@ def animation_order() -> list[str]:
         "invaders",
         "dino",
         "dodge",
+        "frogger",
+        "asteroids",
+        "centipede",
+        "space-shooter",
+        "brick-stack",
+        "catcher",
+        "whack",
+        "slither",
+        "racetrack",
+        "jumper",
+        "sokoban",
+        "minesweeper",
+        "memory",
+        "lights-out",
+        "2048",
+        "connect4",
+        "simon",
+        "rhythm",
+        "cannons",
+        "pinball-game",
         "eq",
         "warp",
         "scanner",
@@ -111,7 +131,7 @@ def animation_order() -> list[str]:
 
 
 def factories() -> dict[str, type[Animation]]:
-    from matrix_deck import effects, extra, pack, pack2
+    from matrix_deck import effects, extra, games, pack, pack2
 
     table: dict[str, type[Animation]] = {
         "flappy": FlappyAnim,
@@ -167,6 +187,7 @@ def factories() -> dict[str, type[Animation]]:
         "dino": extra.DinoRun,
         "dodge": extra.Dodge,
     }
+    table.update(games.factories())
     table.update(pack.factories())
     table.update(pack2.factories())
     return table

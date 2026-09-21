@@ -149,6 +149,33 @@ function hudText(side, data) {
     const pilot = info.alive ? (info.auto ? "AUTO" : "YOU") : "HIT";
     return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, Space, or ↑`;
   }
+  const GAME_HINTS = {
+    frogger: "tap or ↑ hop · ← → dodge traffic",
+    asteroids: "← → rotate · ↑ thrust · space shoot",
+    centipede: "drag or A/D · space / click to shoot",
+    "space-shooter": "← → or drag · space to fire",
+    "brick-stack": "click or space to drop the bar",
+    catcher: "drag or ← → to catch falling bits",
+    whack: "tap bright moles before they hide",
+    slither: "tap a side or arrows · wrap, rocks kill",
+    racetrack: "drag or ← → and stay on the road",
+    jumper: "space / click to hop · ← → drift",
+    sokoban: "arrows push the crate onto the goal",
+    minesweeper: "click reveal · shift-click flag",
+    memory: "click a card, then its matching glyph",
+    "lights-out": "click a cell to toggle neighbors",
+    2048: "arrows or swipe to slide tiles",
+    connect4: "click a column or ← → then space",
+    simon: "click the quadrant that just flashed",
+    rhythm: "hit notes on the line · space / click lane",
+    cannons: "tap to burst incoming missiles",
+    "pinball-game": "drag or space to kick the flipper",
+  };
+  if (GAME_HINTS[id]) {
+    const dead = info.alive === false;
+    const pilot = dead ? "DEAD" : info.auto ? "AUTO" : "YOU";
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · ${GAME_HINTS[id]}`;
+  }
   if (id === "life") {
     const mode = info.paused ? "PAUSED" : "LIVE";
     return `Gen ${info.gen ?? 0} · ${mode} · drag to paint, Shift-drag erases, R reseeds, P pauses`;
@@ -478,7 +505,26 @@ function paintsInk(id) {
 function wantsDrag(id) {
   const item = catalog.find((c) => c.id === id);
   if (item && item.drag) return true;
-  return paintsInk(id) || ["pong", "snake", "breakout", "tetris", "invaders", "dodge"].includes(id);
+  return paintsInk(id) || [
+    "pong",
+    "snake",
+    "breakout",
+    "tetris",
+    "invaders",
+    "dodge",
+    "frogger",
+    "asteroids",
+    "centipede",
+    "space-shooter",
+    "catcher",
+    "whack",
+    "slither",
+    "racetrack",
+    "jumper",
+    "2048",
+    "cannons",
+    "pinball-game",
+  ].includes(id);
 }
 
 function lineCells(x0, y0, x1, y1) {

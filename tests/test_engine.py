@@ -60,11 +60,11 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(deck.random_mode)
         self.assertEqual(deck.left_id, "fire")
 
-    def test_catalog_has_two_hundred_one_unique_animations(self):
+    def test_catalog_has_two_hundred_twenty_one_unique_animations(self):
         items = catalog_meta()
         ids = [item["id"] for item in items]
-        self.assertEqual(len(ids), 201)
-        self.assertEqual(len(set(ids)), 201)
+        self.assertEqual(len(ids), 221)
+        self.assertEqual(len(set(ids)), 221)
         self.assertTrue(all("drag" in item for item in items))
         self.assertTrue(next(item for item in items if item["id"] == "sketch")["drag"])
         self.assertIn("ecg", ids)
@@ -73,6 +73,14 @@ class EngineTests(unittest.TestCase):
         self.assertIn("marquee", ids)
         self.assertIn("clock", ids)
         self.assertIn("pine", ids)
+        self.assertIn("frogger", ids)
+        self.assertIn("asteroids", ids)
+        self.assertIn("2048", ids)
+        self.assertIn("pinball-game", ids)
+        kinds = {item["id"]: item["kind"] for item in items}
+        self.assertEqual(kinds["frogger"], "game")
+        self.assertEqual(kinds["cannons"], "game")
+        self.assertEqual(kinds["pinball-game"], "game")
         self.assertNotIn("candle", ids)
         self.assertNotIn("heart", ids)
         canvas = Canvas()
@@ -85,6 +93,7 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
+        self.assertIn("?v=1.8.0", html)
         self.assertNotIn("<h1>", html)
         self.assertIn("left-marquee", html)
         self.assertIn("Type a message", html)

@@ -91,12 +91,18 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 | **Tetris** | WASD or arrows. |
 | **Invaders** | ← → to move, Space to shoot. |
 | **Dino run / Flappy** | Click or Space. |
+| **Frogger / Racetrack / Catcher** | Hop or steer with tap / ← →. |
+| **Asteroids / Space shooter / Centipede / Cannons** | Arrows + space, or tap to fire. |
+| **Brick stack / Jumper / Pinball table** | Space or click to drop / hop / kick. |
+| **Slither / Whack** | Steer a wrapping worm, or tap moles. |
+| **Sokoban / 2048 / Connect 4** | Arrows (swipe 2048). Connect 4 drops vs a simple AI. |
+| **Minesweeper / Memory / Lights out / Simon / Rhythm** | Click the well. Shift-click flags mines. |
 | **Marquee** | Type in the field under the well. Default text is FRAMEWORK. Letters enter at the top and loop down. |
 | **Clock** | Local time, stacked hours / minutes / seconds. |
 | **ECG** | A scrolling EKG trace (no heart icon). |
 | **Hearts** | Lots of falling hearts. |
 
-There are **201** animations. Click a well, then use the keyboard for games.
+There are **221** animations. Click a well, then use the keyboard for games.
 
 ## If left and right are swapped
 
