@@ -9,9 +9,26 @@ Not an official Framework Computer product. MIT licensed.
 ## What you need
 
 - Framework Laptop 16
-- Two LED Matrix input modules plugged in next to the keyboard
+- at least 1 LED Matrix input module plugged in next to the keyboard
 - Linux with **Python 3.11+** (Omarchy, Arch, Fedora, Debian, Ubuntu all work)
 - No pip packages. No `pyserial`. The USB driver is the Python standard library.
+
+## Personal Notes
+This is my first app, so I hope you like it ;)
+Just got my first laptop that I own, and I'm so happy that it's the Framework 16!!
+I was encouraged by my wonderful uncle Stephon Lawrence to use Omarchy as my frist Linux OS.
+100% don't regret listening to him!
+
+Omarchy is a beautiful OS that is filled to the brim with features that my Mac and Windows brian could only dream of.
+And when paired with the Framework 16 its a AI work-horse!!
+
+I am also going to admit that this App was vibe-coded along-side Cursor and Opencode.
+
+Though Cursor did most of the heavy lifting, and Opencode did a lot of the terminal management, I am still proud of how close I programmed, edited, and promted the idea I had.
+
+There is a time and place for AI, and I can confidently say, that this is where it belongs.(At least for me)
+
+So you can definitely count on me using these tools to speed up my usual process in more of my projects in the future!
 
 ## Install
 
