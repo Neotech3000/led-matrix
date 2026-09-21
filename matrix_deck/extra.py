@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import random
+from datetime import datetime
 
 from matrix_deck import HEIGHT, PIXELS, WIDTH
 from matrix_deck.anim import Animation
@@ -504,6 +505,65 @@ class Bounce(Animation):
         canvas.clear(0)
         canvas.blend(int(self.x), int(self.y), 255)
         canvas.blend(int(self.x), int(self.y) + 1, 70)
+
+
+class Clock(Animation):
+    id = "clock"
+    name = "Clock"
+    description = "Local time on the well: hours, minutes, then seconds."
+
+    # 4×7 digits. Two of them plus a gap column fill the 9-wide module.
+    DIGITS = {
+        "0": ("####", "#  #", "#  #", "#  #", "#  #", "#  #", "####"),
+        "1": ("  # ", " ## ", "  # ", "  # ", "  # ", "  # ", " ###"),
+        "2": ("####", "   #", "   #", "####", "#   ", "#   ", "####"),
+        "3": ("####", "   #", "   #", "####", "   #", "   #", "####"),
+        "4": ("#  #", "#  #", "#  #", "####", "   #", "   #", "   #"),
+        "5": ("####", "#   ", "#   ", "####", "   #", "   #", "####"),
+        "6": ("####", "#   ", "#   ", "####", "#  #", "#  #", "####"),
+        "7": ("####", "   #", "  # ", "  # ", " #  ", " #  ", " #  "),
+        "8": ("####", "#  #", "#  #", "####", "#  #", "#  #", "####"),
+        "9": ("####", "#  #", "#  #", "####", "   #", "   #", "####"),
+    }
+
+    def info(self) -> dict:
+        return {"time": datetime.now().strftime("%H:%M:%S")}
+
+    def _digit(self, canvas: Canvas, ch: str, ox: int, oy: int, value: int = 245) -> None:
+        rows = self.DIGITS.get(ch)
+        if not rows:
+            return
+        for dy, row in enumerate(rows):
+            for dx, cell in enumerate(row):
+                if cell != " ":
+                    canvas.blend(ox + dx, oy + dy, value)
+
+    def _pair(self, canvas: Canvas, text: str, oy: int) -> None:
+        self._digit(canvas, text[0], 0, oy)
+        self._digit(canvas, text[1], 5, oy)
+
+    def step(self, dt: float, canvas: Canvas) -> None:
+        now = datetime.now()
+        canvas.clear(0)
+        blink = now.microsecond < 500_000
+        self._pair(canvas, f"{now.hour:02d}", 1)
+        self._pair(canvas, f"{now.minute:02d}", 10)
+        self._pair(canvas, f"{now.second:02d}", 19)
+        if blink:
+            canvas.blend(4, 8, 220)
+            canvas.blend(4, 17, 220)
+        frac = (now.second + now.microsecond / 1_000_000) / 60.0
+        filled = frac * WIDTH
+        for x in range(WIDTH):
+            canvas.blend(x, 32, 28)
+            canvas.blend(x, 33, 28)
+            if x + 1 <= filled:
+                canvas.blend(x, 32, 200)
+                canvas.blend(x, 33, 140)
+            elif x < filled:
+                part = filled - x
+                canvas.blend(x, 32, _clamp(200 * part))
+                canvas.blend(x, 33, _clamp(140 * part))
 
 
 def _rows(*lines: str) -> tuple[str, ...]:

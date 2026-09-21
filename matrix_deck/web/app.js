@@ -31,6 +31,9 @@ const rightHud = document.getElementById("right-hud");
 const brightnessEl = document.getElementById("brightness");
 const speedEl = document.getElementById("speed");
 const randomBtn = document.getElementById("random-btn");
+const searchEl = document.getElementById("search");
+const searchGhost = document.getElementById("search-ghost");
+const searchFill = document.getElementById("search-fill");
 const libraryLeft = document.getElementById("library-left");
 const libraryRight = document.getElementById("library-right");
 const leftText = document.getElementById("left-text");
@@ -39,6 +42,7 @@ const leftMarquee = document.getElementById("left-marquee");
 const rightMarquee = document.getElementById("right-marquee");
 
 let catalog = [];
+let searchQuery = "";
 let focus = "left";
 let drawing = null;
 let inputQueue = Promise.resolve();
@@ -164,6 +168,9 @@ function hudText(side, data) {
   if (id === "hearts") {
     return "Hearts falling down the well.";
   }
+  if (id === "clock") {
+    return `Local time ${info.time || ""}`.trim() + " · hours, minutes, then seconds.";
+  }
   return item ? item.description : "";
 }
 
@@ -179,7 +186,7 @@ function setFocus(side, { rebuild = true } = {}) {
 }
 
 function maybeRenderLibrary() {
-  const key = `${state.left_anim}|${state.right_anim}|${focus}|${catalog.map((c) => c.id).join(",")}`;
+  const key = `${state.left_anim}|${state.right_anim}|${focus}|${searchQuery}|${catalog.map((c) => c.id).join(",")}`;
   if (key === lastLibKey) return;
   lastLibKey = key;
   renderLibrary();
@@ -191,20 +198,176 @@ function kindLabel(kind) {
   return "Loop";
 }
 
-function renderLibrary() {
-  if (!catalog.length) return;
-  const mid = Math.ceil(catalog.length / 2);
-  fillLibrary(libraryLeft, catalog.slice(0, mid), "left");
-  fillLibrary(libraryRight, catalog.slice(mid), "right");
+function normalize(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
 }
 
-function fillLibrary(root, items, clickSide) {
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+  if (Math.abs(a.length - b.length) > 4) return 99;
+  const rows = b.length + 1;
+  let prev = new Array(rows);
+  let cur = new Array(rows);
+  for (let j = 0; j < rows; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    cur[0] = i;
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= b.length; j++) {
+      const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[b.length];
+}
+
+function subsequenceScore(query, text) {
+  let qi = 0;
+  let consecutive = 0;
+  let bestConsec = 0;
+  let first = -1;
+  for (let i = 0; i < text.length && qi < query.length; i++) {
+    if (text[i] === query[qi]) {
+      if (first < 0) first = i;
+      consecutive += 1;
+      bestConsec = Math.max(bestConsec, consecutive);
+      qi += 1;
+    } else {
+      consecutive = 0;
+    }
+  }
+  if (qi < query.length) return 0;
+  return 400 + bestConsec * 24 - first * 3 - (text.length - query.length);
+}
+
+function fuzzyScore(query, item) {
+  const q = query.trim().toLowerCase();
+  if (!q) return 1;
+  const name = item.name.toLowerCase();
+  const id = item.id.toLowerCase();
+  const desc = item.description.toLowerCase();
+  const nq = normalize(q);
+  const nn = normalize(item.name);
+  const nid = normalize(item.id);
+  let best = 0;
+  if (name === q || nn === nq || id === q || nid === nq) return 1000;
+  if (name.startsWith(q) || nn.startsWith(nq)) best = Math.max(best, 920 - Math.abs(name.length - q.length));
+  if (id.startsWith(q) || nid.startsWith(nq)) best = Math.max(best, 860);
+  for (const word of name.split(/\s+/)) {
+    if (word.startsWith(q)) best = Math.max(best, 840);
+  }
+  best = Math.max(best, subsequenceScore(q, name), subsequenceScore(nq, nn), subsequenceScore(q, id));
+  const targets = [nn, nid, ...name.split(/\s+/).map(normalize)];
+  for (const target of targets) {
+    if (!target) continue;
+    const d = levenshtein(nq, target);
+    const allow = Math.max(1, Math.floor(Math.max(nq.length, target.length) * 0.4));
+    if (d <= allow) best = Math.max(best, 520 - d * 50);
+    if (target.length >= nq.length) {
+      for (let i = 0; i <= target.length - nq.length; i++) {
+        const slice = target.slice(i, i + nq.length);
+        const dd = levenshtein(nq, slice);
+        if (dd <= 2) best = Math.max(best, 480 - dd * 50);
+      }
+    }
+  }
+  if (desc.includes(q)) best = Math.max(best, 140);
+  return best;
+}
+
+function rankedCatalog() {
+  const q = searchQuery.trim();
+  if (!q) return catalog.map((item) => ({ item, score: 1 }));
+  const ranked = [];
+  for (const item of catalog) {
+    const score = fuzzyScore(q, item);
+    if (score > 0) ranked.push({ item, score });
+  }
+  ranked.sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name));
+  return ranked;
+}
+
+function bestMatch() {
+  if (!searchQuery.trim()) return null;
+  const ranked = rankedCatalog();
+  return ranked.length ? ranked[0].item : null;
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function updateSearchChrome() {
+  const q = searchQuery;
+  const match = bestMatch();
+  if (!q || !match) {
+    searchGhost.innerHTML = "";
+    searchFill.classList.add("hidden");
+    searchFill.textContent = "";
+    return;
+  }
+  const name = match.name;
+  const lower = name.toLowerCase();
+  const ql = q.toLowerCase();
+  if (lower.startsWith(ql)) {
+    searchGhost.innerHTML = `<span class="typed">${escapeHtml(q)}</span>${escapeHtml(name.slice(q.length))}`;
+    searchFill.classList.add("hidden");
+  } else {
+    searchGhost.innerHTML = "";
+    searchFill.textContent = name;
+    searchFill.classList.remove("hidden");
+  }
+}
+
+function acceptSearch(assignIt) {
+  const match = bestMatch();
+  if (!match) return;
+  searchEl.value = match.name;
+  searchQuery = match.name;
+  lastLibKey = "";
+  updateSearchChrome();
+  maybeRenderLibrary();
+  if (assignIt) assign(focus, match.id);
+}
+
+function renderLibrary() {
+  if (!catalog.length) return;
+  const q = searchQuery.trim();
+  if (!q) {
+    const mid = Math.ceil(catalog.length / 2);
+    fillLibrary(libraryLeft, catalog.slice(0, mid), "left");
+    fillLibrary(libraryRight, catalog.slice(mid), "right");
+    return;
+  }
+  const items = rankedCatalog().map((row) => row.item);
+  fillLibrary(libraryLeft, items, "left", true);
+  fillLibrary(libraryRight, items, "right", true);
+}
+
+function fillLibrary(root, items, clickSide, searching = false) {
   root.innerHTML = "";
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-search";
+    empty.textContent = "No animations match.";
+    root.appendChild(empty);
+    return;
+  }
+  const topId = searching && items[0] ? items[0].id : null;
   for (const item of items) {
     const card = document.createElement("article");
     card.className = "card";
     const onThis = state[`${clickSide}_anim`] === item.id;
     if (onThis) card.classList.add("active");
+    if (topId && item.id === topId) card.classList.add("suggest");
     const leftOn = state.left_anim === item.id;
     const rightOn = state.right_anim === item.id;
 
@@ -438,7 +601,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn, .search-wrap, .search-fill")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -580,6 +743,45 @@ randomBtn.addEventListener("click", () => {
   randomBtn.textContent = on ? "Random · on" : "Random";
   post("/api/random", { enabled: on });
 });
+
+searchEl.addEventListener("input", () => {
+  searchQuery = searchEl.value;
+  lastLibKey = "";
+  updateSearchChrome();
+  maybeRenderLibrary();
+});
+
+searchEl.addEventListener("keydown", (event) => {
+  if (event.key === "Tab") {
+    if (bestMatch()) {
+      event.preventDefault();
+      acceptSearch(false);
+    }
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    acceptSearch(true);
+    return;
+  }
+  if (event.key === "ArrowRight" && searchEl.selectionStart === searchEl.value.length) {
+    if (bestMatch() && searchGhost.textContent) {
+      event.preventDefault();
+      acceptSearch(false);
+    }
+    return;
+  }
+  if (event.key === "Escape") {
+    searchEl.value = "";
+    searchQuery = "";
+    lastLibKey = "";
+    updateSearchChrome();
+    maybeRenderLibrary();
+    searchEl.blur();
+  }
+});
+
+searchFill.addEventListener("click", () => acceptSearch(false));
 
 function bindText(input, side) {
   const send = () => post("/api/text", { side, text: input.value });

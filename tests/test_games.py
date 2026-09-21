@@ -114,6 +114,28 @@ class ExtraAnimTests(unittest.TestCase):
             anim.step(0.25, later)
         self.assertGreater(sum(later.pixels), 0)
 
+    def test_clock_draws_local_digits(self):
+        from datetime import datetime
+        from unittest.mock import patch
+
+        anim = create_animation("clock")
+        self.assertEqual(anim.name, "Clock")
+        fixed = datetime(2026, 9, 21, 9, 41, 3, 120000)
+        canvas = Canvas()
+        with patch("matrix_deck.extra.datetime") as dt:
+            dt.now.return_value = fixed
+            anim.step(0.05, canvas)
+            self.assertEqual(anim.info()["time"], "09:41:03")
+        self.assertGreater(sum(canvas.pixels), 0)
+        # Top band is hours — 09 should light something in the first 8 rows.
+        self.assertGreater(sum(canvas.pixels[: 8 * 9]), 0)
+        # Bottom row is the minute progress bar.
+        self.assertGreater(sum(canvas.pixels[32 * 9 :]), 0)
+
+    def test_time_alias_opens_clock(self):
+        anim = create_animation("time")
+        self.assertEqual(anim.id, "clock")
+
     def test_ecg_is_a_trace_not_a_heart_icon(self):
         anim = create_animation("ecg")
         self.assertEqual(anim.name, "ECG")

@@ -50,6 +50,74 @@ html, body {
   align-items: center;
   flex-wrap: wrap;
 }
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.search-field {
+  position: relative;
+  display: block;
+  width: 220px;
+  background: #101218;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.search-field:focus-within {
+  border-color: var(--orange);
+}
+.search-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: 0.86rem;
+  color: #6a6560;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.search-ghost .typed {
+  color: transparent;
+}
+.search-field input {
+  position: relative;
+  appearance: none;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 8px 14px;
+  outline: none;
+}
+.search-field input::placeholder {
+  color: #6a6560;
+}
+.search-field input::-webkit-search-cancel-button {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+.search-fill {
+  appearance: none;
+  border: 1px solid rgba(255, 116, 79, 0.45);
+  background: rgba(255, 116, 79, 0.12);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-fill.hidden { display: none; }
+.search-fill:hover { border-color: var(--orange); }
 .meter {
   display: flex;
   align-items: center;
@@ -239,9 +307,12 @@ canvas {
   cursor: pointer;
 }
 .card:hover { border-color: rgba(255, 116, 79, 0.35); }
-.card.active {
-  border-color: var(--orange);
-  box-shadow: 0 0 0 1px rgba(255, 116, 79, 0.35);
+.card.suggest { border-color: rgba(255, 116, 79, 0.55); }
+.empty-search {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 12px 4px;
 }
 .card h3 { margin: 0 0 4px; font-size: 0.86rem; }
 .card p {
@@ -283,5 +354,6 @@ canvas {
   }
   .stage { grid-template-columns: 1fr 1fr; gap: 12px; }
   .meter input[type="range"] { width: 180px; }
+  .search-field { width: 160px; }
   .top { padding-left: 12px; padding-right: 12px; }
 }
