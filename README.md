@@ -16,7 +16,7 @@ Not an official Framework Computer product. MIT licensed.
 ## Install
 
 ```bash
-git clone https://github.com/<neotech300>/led-matrix.git
+git clone https://github.com/<neotech3000>/led-matrix.git
 cd led-matrix
 chmod +x install.sh uninstall.sh run
 ./install.sh
