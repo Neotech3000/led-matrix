@@ -11,7 +11,7 @@ class Animation:
     id = ""
     name = ""
     description = ""
-    kind = "loop"  # loop | game | sketch
+    kind = "loop"  # loop | game | sketch | utility
     drag = False
 
     def step(self, dt: float, canvas: Canvas) -> None:
@@ -57,6 +57,27 @@ def animation_order() -> list[str]:
         "flappy",
         "fishtank",
         "clock",
+        "timer",
+        "pomodoro",
+        "stopwatch",
+        "utc",
+        "date",
+        "week-number",
+        "fuzzy-clock",
+        "binary-clock",
+        "seconds-bar",
+        "alarm",
+        "tap-tempo",
+        "battery-bar",
+        "cpu-pulse",
+        "moon-phase",
+        "dice",
+        "coin-flip",
+        "progress",
+        "chess-clock",
+        "breath-pacer",
+        "water-reminder",
+        "focus-bar",
         "raincode",
         "fire",
         "stars",
@@ -131,12 +152,33 @@ def animation_order() -> list[str]:
 
 
 def factories() -> dict[str, type[Animation]]:
-    from matrix_deck import effects, extra, games, pack, pack2
+    from matrix_deck import effects, extra, games, pack, pack2, utility
 
     table: dict[str, type[Animation]] = {
         "flappy": FlappyAnim,
         "fishtank": FishAnim,
         "clock": extra.Clock,
+        "timer": utility.Timer,
+        "pomodoro": utility.Pomodoro,
+        "stopwatch": utility.Stopwatch,
+        "utc": utility.UtcClock,
+        "date": utility.DateView,
+        "week-number": utility.WeekNumber,
+        "fuzzy-clock": utility.FuzzyClock,
+        "binary-clock": utility.BinaryClock,
+        "seconds-bar": utility.SecondsBar,
+        "alarm": utility.AlarmPulse,
+        "tap-tempo": utility.TapTempo,
+        "battery-bar": utility.BatteryBar,
+        "cpu-pulse": utility.CpuPulse,
+        "moon-phase": utility.MoonPhase,
+        "dice": utility.Dice,
+        "coin-flip": utility.CoinFlip,
+        "progress": utility.Progress,
+        "chess-clock": utility.ChessClock,
+        "breath-pacer": utility.BreathPacer,
+        "water-reminder": utility.WaterReminder,
+        "focus-bar": utility.FocusBar,
         "raincode": effects.MatrixRain,
         "fire": effects.Campfire,
         "stars": effects.Starfield,
@@ -199,6 +241,13 @@ ALIASES = {
     "heartbeat": "ecg",
     "time": "clock",
     "watch": "clock",
+    "kitchen": "timer",
+    "world-clock": "utc",
+    "utc-clock": "utc",
+    "word-clock": "fuzzy-clock",
+    "iso-week": "week-number",
+    "bpm": "tap-tempo",
+    "tap": "tap-tempo",
 }
 
 

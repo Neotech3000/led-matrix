@@ -2,7 +2,7 @@
 
 Desktop app for the two **Framework Laptop 16 LED Matrix** input modules — the 9×34 greyscale wells beside the keyboard.
 
-Pick a looping animation for each side, play Flappy Bird / Snake / Pong, paint Game of Life, or **drag with the mouse to sketch**. Built so someone who just bought the laptop can clone this repo, run one install script, and have a normal app in the menu.
+Pick a looping animation for each side, play Flappy Bird / Snake / Pong, paint Game of Life, **drag with the mouse to sketch**, or park a **utility** on a well (Timer, Clock, Pomodoro, that kind of desk tool). Built so someone who just bought the laptop can clone this repo, run one install script, and have a normal app in the menu.
 
 Not an official Framework Computer product. MIT licensed.
 
@@ -89,12 +89,12 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - Left-column cards run on the left well; right-column cards run on the right well.
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
-- **Search** sits to the left of Brightness. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
-- Compact type chips **All** **(Game)** **(Loop)** **(Draw)** sit next to Search and filter the library; fuzzy search still applies on top of the selected type.
-- **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop.
+- **Search** and the type chips sit **under the two live wells**, not in the top bar. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
+- Compact type chips **All** **(Game)** **(Loop)** **(Draw)** **(Utility)** filter the library; fuzzy search still applies on top of the selected type. On a phone they stack under the bezels.
+- **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch and falling sand stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
 - The live preview stays in the **middle**; half the catalog is on the left, the rest on the right.
 
-### Games, Sketch, Marquee
+### Games, Sketch, Marquee, Utilities
 
 | Module | How to play |
 | --- | --- |
@@ -116,11 +116,14 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 | **Sokoban / 2048 / Connect 4** | Arrows (swipe 2048). Connect 4 drops vs a simple AI. |
 | **Minesweeper / Memory / Lights out / Simon / Rhythm** | Click the well. Shift-click flags mines. |
 | **Marquee** | Type in the field under the well. Default text is FRAMEWORK. Letters enter at the top and loop down. |
-| **Clock** | Local time, stacked hours / minutes / seconds. |
+| **Clock** | Local time, stacked hours / minutes / seconds. Utility. |
+| **Timer** | Countdown from 60 seconds (wall clock, so Speed does not cheat). Click/space start-pause, ↑↓ or +− add 30s, C/R reset. |
 | **ECG** | A scrolling EKG trace (no heart icon). |
 | **Hearts** | Lots of falling hearts. |
 
-There are **221** animations. Click a well, then use the keyboard for games.
+**Utilities** (the (Utility) chip): Clock, Timer, Pomodoro (25/5), Stopwatch, UTC, Date, Week number, Fuzzy clock (FIVE PAST), Binary clock, Seconds bar, Alarm (flash at :00), Tap tempo, Battery, CPU pulse, Moon phase, Dice, Coin flip, Progress, Chess clock, Breath pacer (box 4-4-4-4), Water reminder, Focus bar.
+
+There are **242** animations. Click a well, then use the keyboard for games and timers.
 
 ## If left and right are swapped
 

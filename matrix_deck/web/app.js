@@ -200,6 +200,30 @@ function hudText(side, data) {
   if (id === "clock") {
     return `Local time ${info.time || ""}`.trim() + " · hours, minutes, then seconds.";
   }
+  const UTILITY_HINTS = {
+    timer: `${info.running ? "RUN" : info.done ? "DONE" : "PAUSE"} ${info.remaining || "01:00"} · click/space start-pause · ↑↓ or +− add 30s · C/R reset to 60s`,
+    pomodoro: `${(info.phase || "work").toUpperCase()} ${info.remaining || ""} · click/space start-pause · C/R reset · 25 then 5`,
+    stopwatch: `${info.running ? "RUN" : "PAUSE"} ${info.elapsed || "00:00"} · click/space start-pause · C/R zero`,
+    utc: `UTC ${info.time || ""} · same stacked digits as Clock`,
+    date: `${info.weekday || ""} ${info.date || ""}`,
+    "week-number": `ISO week ${info.week ?? ""} · ${info.year ?? ""}`,
+    "fuzzy-clock": info.words ? `${info.words} · ${info.time || ""}` : "Time in words, nearest five minutes",
+    "binary-clock": `Binary ${info.time || ""} · H M S as bit columns`,
+    "seconds-bar": `Second ${info.second ?? ""} · column fills through the minute`,
+    alarm: `${info.time || ""} · flashes at :00 of each minute`,
+    "tap-tempo": `${info.bpm || 0} BPM · tap or space · C resets`,
+    "battery-bar": `${info.percent ?? "?"} percent${info.live ? "" : " (simulated)"}`,
+    "cpu-pulse": `Load ${info.load ?? "sim"} · nine bars`,
+    "moon-phase": `${info.phase || ""} · real synodic phase`,
+    dice: `Rolled ${info.value ?? 6} · click or space to roll`,
+    "coin-flip": `${info.side || "heads"} · click or space to toss`,
+    progress: `${info.percent ?? 0} percent · click +5 · ↑↓ · C zeros`,
+    "chess-clock": `${info.white || "05:00"} / ${info.black || "05:00"} · ${info.active || "white"} · click/space punch · C/R reset`,
+    "breath-pacer": `${info.phase || "IN"} · box breathing 4-4-4-4 on the wall clock`,
+    "water-reminder": info.due ? "SIP · click when you drank" : `${info.remaining || ""} until a sip · click logged it · ↑↓ interval`,
+    "focus-bar": `${info.running ? "RUN" : "PAUSE"} ${info.remaining || ""} of ${info.duration_min ?? 50} min · click start · ↑↓ length · C/R reset`,
+  };
+  if (UTILITY_HINTS[id]) return UTILITY_HINTS[id];
   return item ? item.description : "";
 }
 
@@ -224,6 +248,7 @@ function maybeRenderLibrary() {
 function kindLabel(kind) {
   if (kind === "game") return "Game";
   if (kind === "sketch") return "Draw";
+  if (kind === "utility") return "Utility";
   return "Loop";
 }
 
@@ -656,7 +681,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;

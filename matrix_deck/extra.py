@@ -511,6 +511,7 @@ class Clock(Animation):
     id = "clock"
     name = "Clock"
     description = "Local time on the well: hours, minutes, then seconds."
+    kind = "utility"
 
     # 4×7 digits. Two of them plus a gap column fill the 9-wide module.
     DIGITS = {

@@ -60,11 +60,11 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(deck.random_mode)
         self.assertEqual(deck.left_id, "fire")
 
-    def test_catalog_has_two_hundred_twenty_one_unique_animations(self):
+    def test_catalog_has_two_hundred_forty_two_unique_animations(self):
         items = catalog_meta()
         ids = [item["id"] for item in items]
-        self.assertEqual(len(ids), 221)
-        self.assertEqual(len(set(ids)), 221)
+        self.assertEqual(len(ids), 242)
+        self.assertEqual(len(set(ids)), 242)
         self.assertTrue(all("drag" in item for item in items))
         self.assertTrue(next(item for item in items if item["id"] == "sketch")["drag"])
         self.assertIn("ecg", ids)
@@ -72,6 +72,7 @@ class EngineTests(unittest.TestCase):
         self.assertIn("hourglass", ids)
         self.assertIn("marquee", ids)
         self.assertIn("clock", ids)
+        self.assertIn("timer", ids)
         self.assertIn("pine", ids)
         self.assertIn("frogger", ids)
         self.assertIn("asteroids", ids)
@@ -81,6 +82,8 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(kinds["frogger"], "game")
         self.assertEqual(kinds["cannons"], "game")
         self.assertEqual(kinds["pinball-game"], "game")
+        self.assertEqual(kinds["clock"], "utility")
+        self.assertEqual(kinds["timer"], "utility")
         self.assertNotIn("candle", ids)
         self.assertNotIn("heart", ids)
         canvas = Canvas()
@@ -93,7 +96,7 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=1.8.1", html)
+        self.assertIn("?v=1.9.0", html)
         self.assertNotIn("<h1>", html)
         self.assertIn("left-marquee", html)
         self.assertIn("Type a message", html)
@@ -108,6 +111,16 @@ class EngineTests(unittest.TestCase):
         self.assertIn('data-kind="game"', html)
         self.assertIn('data-kind="loop"', html)
         self.assertIn('data-kind="sketch"', html)
+        self.assertIn('data-kind="utility"', html)
+        self.assertIn('id="type-utility"', html)
+        self.assertIn("stage-tools", html)
+        self.assertGreater(html.find('id="search"'), html.find('class="stage"'))
+        self.assertGreater(html.find('id="search"'), html.find('id="left-bezel"'))
+        self.assertGreater(html.find('id="search"'), html.find('id="right-bezel"'))
+        self.assertLess(html.find('id="search"'), html.find('class="assign"'))
+        meters = html[html.find('class="meters"') : html.find('class="workspace"')]
+        self.assertNotIn('id="search"', meters)
+        self.assertIn('id="brightness"', meters)
         self.assertNotIn("<button type=\"button\" class=\"bezel\"", html)
         js = (WEB_ROOT / "app.js").read_text()
         self.assertIn("/api/stroke", js)
@@ -123,6 +136,7 @@ class EngineTests(unittest.TestCase):
         self.assertIn("kindFilter", js)
         self.assertIn("item.kind === kindFilter", js)
         self.assertIn(".type-filter", js)
+        self.assertIn("stage-tools", js)
         self.assertNotIn("play-btn", js)
         self.assertNotIn("Play here", html)
         css = (WEB_ROOT / "style.css").read_text()
@@ -130,6 +144,7 @@ class EngineTests(unittest.TestCase):
         self.assertIn("240px", css)
         self.assertIn("scrollbar-color", css)
         self.assertIn(".type-filter", css)
+        self.assertIn(".stage-tools", css)
         self.assertIn("rail-left", html)
         self.assertIn("rail-right", html)
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LED Matrix</title>
-    <link rel="stylesheet" href="/style.css?v=1.8.1" />
+    <link rel="stylesheet" href="/style.css?v=1.9.0" />
   </head>
   <body>
     <header class="top">
@@ -13,27 +13,6 @@
         <span class="pill" id="right-pill">Right · connecting</span>
       </div>
       <div class="meters">
-        <div class="search-wrap">
-          <label class="search-field" for="search">
-            <span class="search-ghost" id="search-ghost" aria-hidden="true"></span>
-            <input
-              id="search"
-              type="search"
-              placeholder="Search"
-              autocomplete="off"
-              spellcheck="false"
-              aria-label="Search animations"
-              aria-autocomplete="list"
-            />
-          </label>
-          <button type="button" class="search-fill hidden" id="search-fill" title="Use this match"></button>
-        </div>
-        <div class="type-filters" id="type-filters" role="group" aria-label="Filter by type">
-          <button type="button" class="type-filter on" data-kind="" id="type-all" tabindex="-1" aria-pressed="true">All</button>
-          <button type="button" class="type-filter" data-kind="game" id="type-game" tabindex="-1" aria-pressed="false">(Game)</button>
-          <button type="button" class="type-filter" data-kind="loop" id="type-loop" tabindex="-1" aria-pressed="false">(Loop)</button>
-          <button type="button" class="type-filter" data-kind="sketch" id="type-draw" tabindex="-1" aria-pressed="false">(Draw)</button>
-        </div>
         <label class="meter">
           Brightness
           <input id="brightness" type="range" min="10" max="255" value="180" />
@@ -103,6 +82,31 @@
           <div class="hud" id="right-hud"></div>
         </article>
 
+        <div class="stage-tools">
+          <div class="search-wrap">
+            <label class="search-field" for="search">
+              <span class="search-ghost" id="search-ghost" aria-hidden="true"></span>
+              <input
+                id="search"
+                type="search"
+                placeholder="Search"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Search animations"
+                aria-autocomplete="list"
+              />
+            </label>
+            <button type="button" class="search-fill hidden" id="search-fill" title="Use this match"></button>
+          </div>
+          <div class="type-filters" id="type-filters" role="group" aria-label="Filter by type">
+            <button type="button" class="type-filter on" data-kind="" id="type-all" tabindex="-1" aria-pressed="true">All</button>
+            <button type="button" class="type-filter" data-kind="game" id="type-game" tabindex="-1" aria-pressed="false">(Game)</button>
+            <button type="button" class="type-filter" data-kind="loop" id="type-loop" tabindex="-1" aria-pressed="false">(Loop)</button>
+            <button type="button" class="type-filter" data-kind="sketch" id="type-draw" tabindex="-1" aria-pressed="false">(Draw)</button>
+            <button type="button" class="type-filter" data-kind="utility" id="type-utility" tabindex="-1" aria-pressed="false">(Utility)</button>
+          </div>
+        </div>
+
         <p class="assign">
           Left cards drive the left well, right cards the right well.
           <strong>L</strong>/<strong>R</strong> badges send a loop to either side.
@@ -120,6 +124,6 @@
       </section>
     </div>
 
-    <script src="/app.js?v=1.8.1"></script>
+    <script src="/app.js?v=1.9.0"></script>
   </body>
 </html>

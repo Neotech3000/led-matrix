@@ -30,7 +30,7 @@ Please add a test when you change game input, the serial protocol, or the HTTP A
 ## Add an animation
 
 1. Subclass `Animation` in `matrix_deck/effects.py` (or a new module).
-2. Set `id`, `name`, `description`, and optionally `kind` (`loop`, `game`, or `sketch`).
+2. Set `id`, `name`, `description`, and optionally `kind` (`loop`, `game`, `sketch`, or `utility`).
 3. Implement `step(dt, canvas)` to draw into the 9×34 greyscale `Canvas`.
 4. For games, implement `click(x, y, erase)`, `stroke(points, erase)`, and/or `key(code)`.
 5. Register the class in `factories()` and `animation_order()` in `matrix_deck/anim.py`.

@@ -303,6 +303,18 @@ canvas {
   border-color: var(--orange);
 }
 
+.stage-tools {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 2px 0 4px;
+}
+.stage-tools .search-field {
+  width: 220px;
+}
+
 .assign {
   grid-column: 1 / -1;
   line-height: 1.45;
@@ -379,5 +391,11 @@ canvas {
   .stage { grid-template-columns: 1fr 1fr; gap: 12px; }
   .meter input[type="range"] { width: 180px; }
   .search-field { width: 148px; }
+  .stage-tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .stage-tools .search-wrap { width: 100%; }
+  .stage-tools .search-field { width: 100%; }
   .top { padding-left: 12px; padding-right: 12px; }
 }
