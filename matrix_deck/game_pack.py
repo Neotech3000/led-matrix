@@ -1,4 +1,4 @@
-"""Two hundred parameterized playable games for the 9×34 wells."""
+"""Parameterized playable games for the 9×34 wells (about seventy pack variants)."""
 
 from __future__ import annotations
 
@@ -13,10 +13,7 @@ from matrix_deck.games import KEYS, Game
 FAMILIES = ("catch", "dodge", "tap", "stack", "slide", "react", "hold", "shmup")
 SLUGS = (
     "ember", "coin", "star", "seed", "berry",
-    "spark", "flake", "gift", "nugget", "petal",
-    "crumb", "marble", "loot", "bead", "dew",
-    "acorn", "token", "cherry", "gem", "paper",
-    "bubble", "pebble", "shard", "comet", "flint",
+    "spark", "flake", "gift", "nugget",
 )
 FAMILY_TITLE = {
     "catch": "Catch",

@@ -1,4 +1,4 @@
-"""Two hundred music visuals: staff, beat, VU, piano roll — not just another EQ."""
+"""About a hundred music visuals: staff, beat, VU, piano roll — not just another EQ."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from matrix_deck.formula import clamp, formula
 ADJ = (
     "muted", "bright", "minor", "major", "syncopated",
     "slow", "brisk", "smoky", "velvet", "brass",
-    "analog", "digital", "lofi", "choral", "plucked",
-    "bowed", "dry", "wet", "swung", "strict",
 )
 NOUN = (
     "staff", "downbeat", "afterbeat", "ostinato", "arpeggio",

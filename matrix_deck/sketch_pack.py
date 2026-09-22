@@ -1,4 +1,4 @@
-"""Two hundred extra sketch / draw modes for the 9×34 wells."""
+"""About a hundred sketch / draw modes for the 9×34 wells."""
 
 from __future__ import annotations
 
@@ -13,8 +13,6 @@ from matrix_deck.formula import clamp
 ADJ = (
     "ink", "chalk", "soot", "navy", "pale",
     "bold", "fine", "wet", "dry", "grainy",
-    "neon", "matte", "soft", "harsh", "wide",
-    "thin", "ragged", "smooth", "ghost", "solid",
 )
 TOOLS = (
     "brush", "drip", "stamp", "mirror", "invert",

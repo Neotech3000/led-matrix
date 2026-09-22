@@ -121,33 +121,44 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(deck.random_mode)
         self.assertIsNone(deck.random_group)
 
-    def test_catalog_has_two_thousand_forty_two_unique_animations(self):
+    def test_catalog_has_about_one_hundred_per_kind(self):
         items = catalog_meta()
         ids = [item["id"] for item in items]
-        self.assertEqual(len(ids), 2042)
-        self.assertEqual(len(set(ids)), 2042)
+        self.assertEqual(len(ids), len(catalog_meta()))
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertGreaterEqual(len(ids), 850)
+        self.assertLessEqual(len(ids), 1000)
         self.assertTrue(all("drag" in item for item in items))
         self.assertTrue(next(item for item in items if item["id"] == "sketch")["drag"])
-        self.assertIn("ecg", ids)
-        self.assertIn("hearts", ids)
-        self.assertIn("hourglass", ids)
-        self.assertIn("marquee", ids)
-        self.assertIn("clock", ids)
-        self.assertIn("timer", ids)
-        self.assertIn("pine", ids)
-        self.assertIn("frogger", ids)
-        self.assertIn("asteroids", ids)
-        self.assertIn("2048", ids)
-        self.assertIn("pinball-game", ids)
-        self.assertIn("lp-copper-helix", ids)
-        self.assertIn("gm-catch-ember", ids)
-        self.assertIn("sk-ink-brush", ids)
-        self.assertIn("ut-timer-alpha", ids)
-        self.assertIn("wx-stormy-front", ids)
-        self.assertIn("mu-muted-staff", ids)
-        self.assertIn("pz-lights-nook", ids)
-        self.assertIn("st-quiet-loadbar", ids)
-        self.assertIn("am-hushed-den", ids)
+        for required in (
+            "flappy",
+            "fishtank",
+            "clock",
+            "timer",
+            "snake",
+            "pong",
+            "sketch",
+            "sand",
+            "marquee",
+            "ecg",
+            "hearts",
+            "hourglass",
+            "pine",
+            "frogger",
+            "asteroids",
+            "2048",
+            "pinball-game",
+            "lp-copper-helix",
+            "gm-catch-ember",
+            "sk-ink-brush",
+            "ut-timer-alpha",
+            "wx-stormy-front",
+            "mu-muted-staff",
+            "pz-lights-nook",
+            "st-quiet-loadbar",
+            "am-hushed-den",
+        ):
+            self.assertIn(required, ids)
         kinds = {item["id"]: item["kind"] for item in items}
         self.assertEqual(kinds["frogger"], "game")
         self.assertEqual(kinds["cannons"], "game")
@@ -167,15 +178,22 @@ class EngineTests(unittest.TestCase):
         counts = {}
         for item in items:
             counts[item["kind"]] = counts.get(item["kind"], 0) + 1
-        self.assertEqual(counts["loop"], 388)
-        self.assertEqual(counts["game"], 230)
-        self.assertEqual(counts["sketch"], 202)
-        self.assertEqual(counts["utility"], 222)
-        self.assertEqual(counts["weather"], 200)
-        self.assertEqual(counts["music"], 200)
-        self.assertEqual(counts["puzzle"], 200)
-        self.assertEqual(counts["status"], 200)
-        self.assertEqual(counts["ambient"], 200)
+        expected = (
+            "loop",
+            "game",
+            "sketch",
+            "utility",
+            "weather",
+            "music",
+            "puzzle",
+            "status",
+            "ambient",
+        )
+        self.assertEqual(set(counts), set(expected))
+        for kind in expected:
+            self.assertGreaterEqual(counts[kind], 90, kind)
+            self.assertLessEqual(counts[kind], 110, kind)
+        self.assertNotIn("favorites", counts)
         self.assertNotIn("candle", ids)
         self.assertNotIn("heart", ids)
         canvas = Canvas()
@@ -185,10 +203,30 @@ class EngineTests(unittest.TestCase):
             anim.step(0.05, canvas)
             self.assertEqual(item["id"], anim.id)
 
+    def test_group_create_visible_on_same_deck_without_restart(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                self.assertEqual(deck.snapshot()["groups"], [])
+                created = deck.add_group("Desk mix")
+                self.assertIsNotNone(created["group"])
+                self.assertEqual(created["group"]["name"], "Desk mix")
+                self.assertEqual(created["group"]["ids"], [])
+                self.assertEqual(len(created["groups"]), 1)
+                snap = deck.snapshot()
+                self.assertEqual(len(snap["groups"]), 1)
+                self.assertEqual(snap["groups"][0]["name"], "Desk mix")
+                self.assertEqual(snap["groups"][0]["ids"], [])
+                self.assertEqual(snap["groups"][0]["id"], created["group"]["id"])
+                other = Deck()
+                other.load_library()
+                self.assertEqual(len(other.groups), 1)
+                self.assertEqual(other.groups[0]["name"], "Desk mix")
+
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.1.0", html)
+        self.assertIn("?v=2.2.0", html)
         self.assertNotIn("<h1>", html)
         self.assertIn("left-marquee", html)
         self.assertIn("Type a message", html)
@@ -200,7 +238,21 @@ class EngineTests(unittest.TestCase):
         self.assertIn("search-ghost", html)
         self.assertIn("search-fill", html)
         self.assertIn('id="type-filters"', html)
-        self.assertIn("(Favorites)", html)
+        self.assertIn(">Favorites<", html)
+        self.assertIn(">Game<", html)
+        self.assertIn(">Loop<", html)
+        self.assertIn(">Draw<", html)
+        self.assertIn(">Utility<", html)
+        self.assertIn(">Weather<", html)
+        self.assertIn(">Music<", html)
+        self.assertIn(">Puzzle<", html)
+        self.assertIn(">Status<", html)
+        self.assertIn(">Ambient<", html)
+        self.assertIn(">All<", html)
+        self.assertNotIn("(Favorites)", html)
+        self.assertNotIn("(Game)", html)
+        filters = html[html.find('id="type-filters"') : html.find('id="groups"')]
+        self.assertNotIn("(", filters)
         self.assertIn('data-kind="favorites"', html)
         self.assertIn("New group", html)
         self.assertIn('id="groups"', html)
@@ -236,6 +288,15 @@ class EngineTests(unittest.TestCase):
         self.assertIn('"heart on" : "heart"', js)
         self.assertIn("toggleHeart", js)
         self.assertIn("activeGroup", js)
+        self.assertIn("filingBrowse", js)
+        self.assertIn("mergeGroups", js)
+        self.assertIn("Filing into", js)
+        self.assertIn("tap hearts to add", js)
+        self.assertIn("Tap hearts to add to", js)
+        self.assertIn("Add more…", js)
+        self.assertIn("card-add", js)
+        self.assertIn("toggleGroupItem", js)
+        self.assertIn("ids.length > 0 && !filingBrowse", js)
         self.assertIn("New group", js)
         self.assertIn("fuzzyScore", js)
         self.assertIn("search-ghost", js)
@@ -255,6 +316,9 @@ class EngineTests(unittest.TestCase):
         self.assertIn(".type-filter", css)
         self.assertIn(".stage-tools", css)
         self.assertIn("button.heart", css)
+        self.assertIn("button.card-add", css)
+        self.assertIn(".filing-banner", css)
+        self.assertIn(".add-more", css)
         self.assertIn(".group-bubble", css)
         self.assertIn(".group-random", css)
         self.assertIn("rail-left", html)

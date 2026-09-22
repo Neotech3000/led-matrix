@@ -90,8 +90,9 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
 - **Search** and the type chips sit **under the two live wells**, not in the top bar. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
-- Compact type chips **All** **(Favorites)** **(Game)** **(Loop)** **(Draw)** **(Utility)** **(Weather)** **(Music)** **(Puzzle)** **(Status)** **(Ambient)** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels.
-- **Hearts** on each card save a global favorite. The **(Favorites)** chip shows only those. Click a named **group** bubble to filter to that group and file further hearts into it. **New group** makes another named mix. Each bubble has its own **Random** that cycles only that group (10–30s, both wells, skip sketch/sand). Top-bar **Random** still walks the whole catalog. Group random and catalog Random are mutually exclusive; assigning a card by hand turns that shuffle off.
+- Compact type chips **All** **Favorites** **Game** **Loop** **Draw** **Utility** **Weather** **Music** **Puzzle** **Status** **Ambient** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels. **Favorites** is a filter, not a catalog kind.
+- **Hearts** on each card save a global favorite. The **Favorites** chip shows only those.
+- **Groups:** click **New group**, name it (for example Desk mix), and it appears in the bubble row immediately — no restart. That group is selected as the filing target, with a hint like “Filing into Desk mix — tap hearts to add”. An empty group still shows the **full catalog** (plus a banner) so you can add. Heart a card to favorite it and file it into the group; the **+** on the card adds to the group only. Once the group has items, the library filters to those ids; **Add more…** reveals the full catalog while you keep filing. Click the bubble again to stop filing. Each bubble has its own **Random** that cycles only that group (10–30s, both wells, skip sketch/sand). Top-bar **Random** still walks the whole catalog. Group random and catalog Random are mutually exclusive; assigning a card by hand turns that shuffle off.
 - Favorites and groups are saved in `~/.local/share/led-matrix/library.json`.
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch, falling sand, and every other draw mode stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
 - The live preview stays in the **middle**; half the catalog is on the left, the rest on the right.
@@ -123,11 +124,11 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 | **ECG** | A scrolling EKG trace (no heart icon). |
 | **Hearts** | Lots of falling hearts. |
 
-**Utilities** (the (Utility) chip): Clock, Timer, Pomodoro (25/5), Stopwatch, UTC, Date, Week number, Fuzzy clock (FIVE PAST), Binary clock, Seconds bar, Alarm (flash at :00), Tap tempo, Battery, CPU pulse, Moon phase, Dice, Coin flip, Progress, Chess clock, Breath pacer (box 4-4-4-4), Water reminder, Focus bar, plus two hundred more timers, dice, calendars, reminders, and converters.
+**Utilities** (the Utility chip): Clock, Timer, Pomodoro (25/5), Stopwatch, UTC, Date, Week number, Fuzzy clock (FIVE PAST), Binary clock, Seconds bar, Alarm (flash at :00), Tap tempo, Battery, CPU pulse, Moon phase, Dice, Coin flip, Progress, Chess clock, Breath pacer (box 4-4-4-4), Water reminder, Focus bar, plus about eighty more timers, dice, calendars, reminders, and converters.
 
-New categories (200 each): **weather** (skies, rain, seasons, forecast-as-art), **music** (staff, beat, VU, piano roll), **puzzle** (lights, match, mazes, solitaire-ish toys), **status** (bars, badges, simulated readouts), **ambient** (calm desk atmospheres).
+Each type is limited to **about 100** unique animations: **loop**, **game**, **sketch** (Draw), **utility**, **weather**, **music**, **puzzle**, **status**, and **ambient**. Favorites is only a filter.
 
-There are **2042** animations. Click a well, then use the keyboard for games and timers.
+There are **903** animations. Click a well, then use the keyboard for games and timers.
 
 ## If left and right are swapped
 

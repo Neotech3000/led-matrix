@@ -1,4 +1,4 @@
-"""Two hundred extra desk utilities: timers, dice, calendars, converters."""
+"""About eighty extra desk utilities: timers, dice, calendars, converters."""
 
 from __future__ import annotations
 
@@ -25,10 +25,8 @@ FAMILIES = (
     "reminder", "convert", "metro", "progress", "tally",
 )
 SLUGS = (
-    "alpha", "bravo", "charlie", "delta", "echo",
-    "foxtrot", "golf", "hotel", "india", "juliet",
-    "kilo", "lima", "mike", "november", "oscar",
-    "papa", "quebec", "romeo", "sierra", "tango",
+    "alpha", "bravo", "charlie", "delta",
+    "echo", "foxtrot", "golf", "hotel",
 )
 CITIES = (
     ("LON", 0), ("PAR", 1), ("CAI", 2), ("MOW", 3), ("DXB", 4),

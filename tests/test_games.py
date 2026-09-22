@@ -10,7 +10,7 @@ from matrix_deck import HEIGHT
 from matrix_deck.anim import create_animation
 from matrix_deck.canvas import Canvas, line_cells
 from matrix_deck.engine import Deck
-from matrix_deck.server import make_server
+from matrix_deck.server import WEB_ROOT, make_server
 
 
 class LineCellsTests(unittest.TestCase):
@@ -442,3 +442,35 @@ class LibraryApiTests(unittest.TestCase):
         status, data = self.post("/api/groups/delete", {"id": group_id})
         self.assertEqual(data["groups"], [])
         self.assertFalse(self.deck.random_mode)
+
+    def test_group_create_visible_on_frame_without_restart(self):
+        status, before = self.get("/api/frame")
+        self.assertEqual(status, 200)
+        self.assertEqual(before["groups"], [])
+        status, data = self.post("/api/groups", {"name": "Desk mix"})
+        self.assertEqual(status, 200)
+        self.assertIn("group", data)
+        self.assertEqual(data["group"]["name"], "Desk mix")
+        self.assertEqual(data["group"]["ids"], [])
+        self.assertEqual(len(data["groups"]), 1)
+        status, frame = self.get("/api/frame")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(frame["groups"]), 1)
+        self.assertEqual(frame["groups"][0]["name"], "Desk mix")
+        self.assertEqual(frame["groups"][0]["id"], data["group"]["id"])
+        self.assertEqual(frame["groups"][0]["ids"], [])
+
+    def test_empty_group_still_allows_filing(self):
+        status, data = self.post("/api/groups", {"name": "Desk mix"})
+        self.assertEqual(status, 200)
+        group_id = data["group"]["id"]
+        self.assertEqual(data["groups"][0]["ids"], [])
+        status, data = self.post("/api/groups/item", {"groupId": group_id, "animId": "fire", "on": True})
+        self.assertEqual(status, 200)
+        self.assertIn("fire", data["groups"][0]["ids"])
+        status, frame = self.get("/api/frame")
+        self.assertIn("fire", frame["groups"][0]["ids"])
+        js = (WEB_ROOT / "app.js").read_text()
+        self.assertIn("ids.length > 0 && !filingBrowse", js)
+        self.assertIn("Tap hearts to add to", js)
+        self.assertIn("Add more…", js)

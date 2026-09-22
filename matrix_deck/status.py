@@ -1,4 +1,4 @@
-"""Two hundred status readouts: bars, badges, simulated sys/info."""
+"""About a hundred status readouts: bars, badges, simulated sys/info."""
 
 from __future__ import annotations
 
@@ -13,8 +13,6 @@ from matrix_deck.utility import _center3, _hbar
 ADJ = (
     "quiet", "busy", "peak", "idle", "warm",
     "cold", "live", "stale", "local", "remote",
-    "core", "edge", "cached", "dirty", "clean",
-    "queued", "blocked", "ready", "slow", "fast",
 )
 NOUN = (
     "loadbar", "badge", "spark", "ticker", "quota",

@@ -1,4 +1,4 @@
-"""Two hundred extra looping effects so the picker climbs past two thousand."""
+"""A small set of generated looping extras (keep distinctive ids, drop clones)."""
 
 from __future__ import annotations
 
@@ -8,14 +8,10 @@ from matrix_deck import HEIGHT, WIDTH
 from matrix_deck.formula import clamp, formula
 
 ADJ = (
-    "copper", "pewter", "ivory", "onyx", "coral",
-    "jade", "merlot", "saffron", "cobalt", "umber",
-    "pearl", "graphite", "rusted", "minted", "plum",
-    "wheat", "slate", "bronze", "lilac", "ochre",
+    "copper",
 )
 NOUN = (
-    "helix", "millrace", "tidewall", "sparkfall", "glassrain",
-    "nightloom", "gritfan", "pulsenet", "chalkwave", "emberfan",
+    "helix",
 )
 MODE_BLURB = (
     "Two sine fields interfere into slow bands.",

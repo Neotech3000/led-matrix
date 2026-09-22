@@ -1,4 +1,4 @@
-"""Two hundred weather scenes: skies, rain tools, forecasts-as-art, seasons."""
+"""About a hundred weather scenes: skies, rain, forecasts-as-art, seasons."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from matrix_deck.formula import clamp, formula
 ADJ = (
     "stormy", "mild", "arctic", "humid", "arid",
     "coastal", "alpine", "tropical", "polar", "golden",
-    "silver", "ashen", "violet", "pale", "heavy",
-    "light", "late", "early", "inland", "marine",
 )
 NOUN = (
     "front", "squall", "drizzle", "overcast", "thaw",

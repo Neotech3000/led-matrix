@@ -1,4 +1,4 @@
-"""Two hundred light puzzles and solitaire-ish toys (kind=puzzle)."""
+"""About a hundred light puzzles and solitaire-ish toys (kind=puzzle)."""
 
 from __future__ import annotations
 
@@ -13,9 +13,7 @@ FAMILIES = ("lights", "match", "maze", "copy", "peg", "pipes", "klondike", "slid
 SLUGS = (
     "nook", "attic", "cellar", "porch", "hearth",
     "lantern", "wicket", "gable", "cistern", "loft",
-    "alcove", "well", "gate", "keep", "orchard",
-    "harbor", "meadow", "thicket", "brook", "ridge",
-    "hollow", "spire", "quay", "copse", "marsh",
+    "alcove", "well",
 )
 TITLES = {
     "lights": "Lights",

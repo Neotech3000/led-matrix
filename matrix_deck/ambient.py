@@ -1,4 +1,4 @@
-"""Two hundred calm desk atmospheres for the 9×34 wells."""
+"""About a hundred calm desk atmospheres for the 9×34 wells."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from matrix_deck.formula import clamp, formula
 ADJ = (
     "hushed", "dim", "still", "warm", "cool",
     "late", "early", "rainy", "dusty", "linen",
-    "cedar", "mossy", "amber", "sleepy", "distant",
-    "near", "paper", "wool", "slow", "open",
 )
 NOUN = (
     "den", "window", "hearth", "desk", "porch",
