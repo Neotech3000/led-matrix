@@ -465,26 +465,52 @@ button.card-add.on {
 .group-select { color: var(--ink); }
 .group-add {
   appearance: none;
-  width: 22px;
-  height: 22px;
+  flex: 0 0 32px;
+  min-width: 32px;
+  min-height: 32px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: transparent;
-  color: var(--muted);
+  color: var(--ink);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
 }
 .group-add:hover { border-color: rgba(255, 116, 79, 0.55); color: var(--orange); }
 .group-add.on {
-  color: var(--orange);
+  color: var(--ink);
   border-color: rgba(255, 116, 79, 0.75);
   background: rgba(255, 116, 79, 0.16);
 }
 .group-bubble.selecting {
-  border-color: rgba(255, 116, 79, 0.45);
+  border-color: rgba(255, 116, 79, 0.75);
+  box-shadow: 0 0 0 1px rgba(255, 116, 79, 0.35);
+}
+.selection-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.selection-done {
+  appearance: none;
+  border: 1px solid rgba(255, 116, 79, 0.55);
+  background: rgba(255, 116, 79, 0.16);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 14px;
+  min-height: 32px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.selection-done:hover { border-color: var(--orange); }
+body.selecting .card.in-group {
+  border-color: rgba(255, 116, 79, 0.55);
 }
 .group-random {
   appearance: none;

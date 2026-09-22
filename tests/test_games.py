@@ -478,3 +478,6 @@ class LibraryApiTests(unittest.TestCase):
         self.assertIn('data-add', js)
         self.assertIn("Adding to", js)
         self.assertIn("tap cards to add", js)
+        self.assertIn("Esc or Done to exit", js)
+        self.assertIn("enterSelectionMode", js)
+        self.assertIn("selection-done", js)

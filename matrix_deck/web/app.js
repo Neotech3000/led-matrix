@@ -277,6 +277,7 @@ function maybeRenderLibrary() {
   if (key === lastLibKey) return;
   lastLibKey = key;
   document.body.classList.toggle("filing", !!selectionGroup);
+  document.body.classList.toggle("selecting", !!selectionGroup);
   renderLibrary();
   maybeRenderGroups();
 }
@@ -381,12 +382,13 @@ function visibleCatalog() {
   } else if (kindFilter) {
     items = items.filter((item) => item.kind === kindFilter);
   }
-  // Viewing a group filters to its ids. Selection mode does not — adding to an
-  // empty group does not require a library filter; keep All/type/search.
+  // Viewing a populated group filters to its ids. Selection mode does not —
+  // adding does not require a library filter; keep All/type/search.
+  // Empty groups keep the full catalog so the view is not a blank list.
   if (activeGroup && !selectionGroup) {
     const group = activeGroupRecord();
     const ids = groupIds(group);
-    if (group) {
+    if (group && ids.length > 0) {
       const want = new Set(ids);
       items = items.filter((item) => want.has(item.id));
     }
@@ -535,10 +537,11 @@ function fillLibrary(root, items, clickSide, searching = false) {
 
     if (filing) {
       const inGroup = groupIds(filingRecord).includes(item.id);
+      if (inGroup) card.classList.add("in-group");
       const plus = document.createElement("button");
       plus.type = "button";
       plus.className = inGroup ? "card-add on" : "card-add";
-      plus.textContent = inGroup ? "−" : "+";
+      plus.textContent = inGroup ? "✓" : "+";
       plus.title = inGroup
         ? `Remove ${item.name} from ${filingRecord ? filingRecord.name : "group"}`
         : `Add ${item.name} to ${filingRecord ? filingRecord.name : "group"}`;
@@ -619,7 +622,7 @@ function selectionGroupRecord() {
 function filingHint() {
   if (!selectionGroup) return "";
   const group = selectionGroupRecord();
-  return group ? `Adding to ${group.name} — tap cards to add` : "";
+  return group ? `Adding to ${group.name} — tap cards to add. Esc or Done to exit.` : "";
 }
 
 function exitSelectionMode() {
@@ -819,15 +822,35 @@ function renderGroups() {
   hint.id = "groups-hint";
   const text = filingHint();
   hint.textContent = text;
-  hint.hidden = !text;
+  hint.hidden = !text || !!selectionGroup;
   groupsEl.appendChild(hint);
 
   if (selectionGroup && text) {
+    const bar = document.createElement("div");
+    bar.className = "selection-bar";
+    bar.id = "selection-bar";
     const banner = document.createElement("p");
     banner.className = "filing-banner";
     banner.id = "filing-banner";
     banner.textContent = text;
-    groupsEl.appendChild(banner);
+    const done = document.createElement("button");
+    done.type = "button";
+    done.className = "selection-done";
+    done.id = "selection-done";
+    done.textContent = "Done";
+    done.title = "Exit selection mode";
+    done.addEventListener("click", () => exitSelectionMode());
+    bar.append(banner, done);
+    groupsEl.appendChild(bar);
+  } else if (activeGroup) {
+    const group = activeGroupRecord();
+    if (group && groupIds(group).length === 0) {
+      const banner = document.createElement("p");
+      banner.className = "filing-banner";
+      banner.id = "filing-banner";
+      banner.textContent = `${group.name} is empty. Tap + on the group to add.`;
+      groupsEl.appendChild(banner);
+    }
   }
 }
 
@@ -1097,7 +1120,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .filing-banner, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .selection-done, .selection-bar, .filing-banner, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
