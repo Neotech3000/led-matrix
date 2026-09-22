@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LED Matrix</title>
-    <link rel="stylesheet" href="/style.css?v=2.0.0" />
+    <link rel="stylesheet" href="/style.css?v=2.1.0" />
   </head>
   <body>
     <header class="top">
@@ -100,6 +100,7 @@
           </div>
           <div class="type-filters" id="type-filters" role="group" aria-label="Filter by type">
             <button type="button" class="type-filter on" data-kind="" id="type-all" tabindex="-1" aria-pressed="true">All</button>
+            <button type="button" class="type-filter" data-kind="favorites" id="type-favorites" tabindex="-1" aria-pressed="false">(Favorites)</button>
             <button type="button" class="type-filter" data-kind="game" id="type-game" tabindex="-1" aria-pressed="false">(Game)</button>
             <button type="button" class="type-filter" data-kind="loop" id="type-loop" tabindex="-1" aria-pressed="false">(Loop)</button>
             <button type="button" class="type-filter" data-kind="sketch" id="type-draw" tabindex="-1" aria-pressed="false">(Draw)</button>
@@ -112,9 +113,18 @@
           </div>
         </div>
 
+        <div class="groups" id="groups" aria-label="Animation groups">
+          <div class="group-row" id="group-row">
+            <p class="groups-status" id="groups-status">Loading groups…</p>
+            <button type="button" class="group-new" id="new-group">New group</button>
+          </div>
+          <p class="groups-hint" id="groups-hint" hidden></p>
+        </div>
+
         <p class="assign">
           Left cards drive the left well, right cards the right well.
           <strong>L</strong>/<strong>R</strong> badges send a loop to either side.
+          Heart a card to favorite it. Click a group, then hearts file into that group.
           Keyboard goes to the well you last clicked.
         </p>
         <p class="foot">
@@ -129,6 +139,6 @@
       </section>
     </div>
 
-    <script src="/app.js?v=2.0.0"></script>
+    <script src="/app.js?v=2.1.0"></script>
   </body>
 </html>

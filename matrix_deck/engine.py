@@ -11,6 +11,8 @@ from matrix_deck import __version__
 from matrix_deck.anim import Animation, animation_order, catalog_meta, create_animation
 from matrix_deck.canvas import Canvas
 from matrix_deck.hardware import LedMatrix
+from matrix_deck.library import load as load_library_file
+from matrix_deck.library import new_group_id, normalize, save as save_library_file
 
 SKIP_RANDOM = frozenset({"sketch", "sand"})
 
@@ -32,13 +34,19 @@ class Deck:
     right_status: str = "simulated"
     text: dict[str, str] = field(default_factory=lambda: {"left": "FRAMEWORK", "right": "FRAMEWORK"})
     random_mode: bool = False
+    random_group: str | None = None
+    favorites: list[str] = field(default_factory=list)
+    groups: list[dict] = field(default_factory=list)
     rng: random.Random = field(default_factory=random.Random)
     _due: dict[str, float] = field(default_factory=lambda: {"left": 0.0, "right": 0.0}, repr=False)
+    _random_ids: list[str] | None = field(default=None, repr=False)
+    _library_loaded: bool = field(default=False, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _stop: threading.Event = field(default_factory=threading.Event, repr=False)
     _thread: threading.Thread | None = field(default=None, repr=False)
 
     def start(self) -> None:
+        self.load_library()
         if self._thread and self._thread.is_alive():
             return
         self._stop.clear()
@@ -56,6 +64,8 @@ class Deck:
         anim = create_animation(anim_id)
         with self._lock:
             self.random_mode = False
+            self.random_group = None
+            self._random_ids = None
             if hasattr(anim, "set_text"):
                 anim.set_text(self.text[side if side == "right" else "left"])
             if side == "right":
@@ -65,32 +75,70 @@ class Deck:
                 self.left_id = anim.id
                 self.left_anim = anim
 
-    def set_random(self, enabled: bool) -> None:
+    def set_random(self, enabled: bool, pool: list[str] | None = None, group_id: str | None = None) -> None:
         with self._lock:
             self.random_mode = bool(enabled)
             if self.random_mode:
+                if pool is not None:
+                    self._random_ids = [str(item).strip() for item in pool if str(item).strip()]
+                    self.random_group = str(group_id) if group_id else None
+                else:
+                    self._random_ids = None
+                    self.random_group = None
                 now = time.monotonic()
                 self._install_random("left", now)
                 self._install_random("right", now)
+            else:
+                self._random_ids = None
+                self.random_group = None
 
-    def _random_pool(self, avoid: set[str]) -> list[str]:
+    def set_group_random(self, group_id: str, enabled: bool) -> None:
+        group_id = str(group_id or "").strip()
+        if not enabled:
+            with self._lock:
+                if not group_id or self.random_group == group_id:
+                    self.random_mode = False
+                    self.random_group = None
+                    self._random_ids = None
+            return
+        self.ensure_library()
+        with self._lock:
+            group = next((item for item in self.groups if item["id"] == group_id), None)
+            ids = list(group["ids"]) if group is not None else None
+        if ids is None:
+            return
+        self.set_random(True, pool=ids, group_id=group_id)
+
+    def _random_pool(self, avoid: set[str], ids: list[str] | None = None) -> list[str]:
         from matrix_deck.anim import factories
 
         table = factories()
-        ids = []
-        for anim_id in animation_order():
+        if ids is not None:
+            candidates = list(ids)
+        elif self._random_ids is not None:
+            candidates = list(self._random_ids)
+        else:
+            candidates = list(animation_order())
+        chosen = []
+        for anim_id in candidates:
             if anim_id in SKIP_RANDOM:
                 continue
             cls = table.get(anim_id)
-            if cls is not None and getattr(cls, "kind", "loop") == "sketch":
+            if cls is None:
                 continue
-            ids.append(anim_id)
-        pool = [anim_id for anim_id in ids if anim_id not in avoid]
-        return pool or ids
+            if getattr(cls, "kind", "loop") == "sketch":
+                continue
+            chosen.append(anim_id)
+        pool = [anim_id for anim_id in chosen if anim_id not in avoid]
+        return pool or chosen
 
     def _install_random(self, side: str, now: float) -> None:
         avoid = {self.left_id, self.right_id}
-        pick = self.rng.choice(self._random_pool(avoid))
+        pool = self._random_pool(avoid)
+        if not pool:
+            self._due[side] = now + self.rng.uniform(10.0, 30.0)
+            return
+        pick = self.rng.choice(pool)
         anim = create_animation(pick)
         if hasattr(anim, "set_text"):
             anim.set_text(self.text[side])
@@ -185,6 +233,12 @@ class Deck:
                 "brightness": self.brightness,
                 "speed": self.speed,
                 "random": self.random_mode,
+                "randomGroup": self.random_group,
+                "favorites": list(self.favorites),
+                "groups": [
+                    {"id": group["id"], "name": group["name"], "ids": list(group["ids"])}
+                    for group in self.groups
+                ],
                 "text": {"left": self.text["left"], "right": self.text["right"]},
                 "version": __version__,
                 "hardware": {
@@ -246,3 +300,106 @@ class Deck:
             except RuntimeError:
                 pass
             hw.close()
+
+    def ensure_library(self) -> None:
+        if not self._library_loaded:
+            self.load_library()
+
+    def load_library(self) -> dict:
+        data = load_library_file()
+        with self._lock:
+            self.favorites = list(data["favorites"])
+            self.groups = [{"id": g["id"], "name": g["name"], "ids": list(g["ids"])} for g in data["groups"]]
+            self._library_loaded = True
+        return data
+
+    def persist_library(self) -> dict:
+        with self._lock:
+            payload = {
+                "favorites": list(self.favorites),
+                "groups": [
+                    {"id": group["id"], "name": group["name"], "ids": list(group["ids"])}
+                    for group in self.groups
+                ],
+            }
+        return save_library_file(payload)
+
+    def library_data(self) -> dict:
+        self.ensure_library()
+        with self._lock:
+            return {
+                "favorites": list(self.favorites),
+                "groups": [
+                    {"id": group["id"], "name": group["name"], "ids": list(group["ids"])}
+                    for group in self.groups
+                ],
+            }
+
+    def replace_library(self, data: dict) -> dict:
+        cleaned = normalize(data)
+        with self._lock:
+            self.favorites = list(cleaned["favorites"])
+            self.groups = [
+                {"id": group["id"], "name": group["name"], "ids": list(group["ids"])}
+                for group in cleaned["groups"]
+            ]
+            self._library_loaded = True
+            if self.random_group and not any(group["id"] == self.random_group for group in self.groups):
+                self.random_mode = False
+                self.random_group = None
+                self._random_ids = None
+        return self.persist_library()
+
+    def set_favorite(self, anim_id: str, on: bool) -> dict:
+        self.ensure_library()
+        anim_id = str(anim_id or "").strip()
+        if anim_id:
+            with self._lock:
+                if on:
+                    if anim_id not in self.favorites:
+                        self.favorites.append(anim_id)
+                else:
+                    self.favorites = [item for item in self.favorites if item != anim_id]
+        return self.persist_library()
+
+    def add_group(self, name: str) -> dict:
+        self.ensure_library()
+        name = str(name or "").strip()[:40]
+        if not name:
+            return {**self.library_data(), "group": None}
+        group = {"id": new_group_id(), "name": name, "ids": []}
+        with self._lock:
+            self.groups.append(group)
+        saved = self.persist_library()
+        return {**saved, "group": group}
+
+    def delete_group(self, group_id: str) -> dict:
+        self.ensure_library()
+        group_id = str(group_id or "").strip()
+        with self._lock:
+            self.groups = [group for group in self.groups if group["id"] != group_id]
+            if self.random_group == group_id:
+                self.random_mode = False
+                self.random_group = None
+                self._random_ids = None
+        return self.persist_library()
+
+    def set_group_item(self, group_id: str, anim_id: str, on: bool) -> dict:
+        self.ensure_library()
+        group_id = str(group_id or "").strip()
+        anim_id = str(anim_id or "").strip()
+        with self._lock:
+            for group in self.groups:
+                if group["id"] != group_id:
+                    continue
+                ids = list(group["ids"])
+                if on:
+                    if anim_id and anim_id not in ids:
+                        ids.append(anim_id)
+                else:
+                    ids = [item for item in ids if item != anim_id]
+                group["ids"] = ids
+                if self.random_group == group_id:
+                    self._random_ids = list(ids)
+                break
+        return self.persist_library()

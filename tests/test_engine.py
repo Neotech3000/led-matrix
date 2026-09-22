@@ -1,6 +1,11 @@
+import json
+import os
 import random
+import tempfile
 import time
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from matrix_deck.anim import catalog_meta, create_animation
 from matrix_deck.canvas import Canvas
@@ -24,6 +29,9 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(snap["right_anim"], "fishtank")
         self.assertEqual(snap["speed"], 1.0)
         self.assertFalse(snap["random"])
+        self.assertIsNone(snap["randomGroup"])
+        self.assertEqual(snap["favorites"], [])
+        self.assertEqual(snap["groups"], [])
         kinds = {item["id"]: item["kind"] for item in snap["catalog"]}
         self.assertEqual(kinds["flappy"], "game")
         self.assertEqual(kinds["sketch"], "sketch")
@@ -62,7 +70,56 @@ class EngineTests(unittest.TestCase):
         self.assertNotEqual(kinds.get(deck.left_id), "sketch")
         deck.set_animation("left", "fire")
         self.assertFalse(deck.random_mode)
+        self.assertIsNone(deck.random_group)
         self.assertEqual(deck.left_id, "fire")
+
+    def test_favorite_toggle_persists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                saved = deck.set_favorite("fire", True)
+                self.assertIn("fire", saved["favorites"])
+                path = Path(tmp) / ".local/share/led-matrix/library.json"
+                self.assertTrue(path.is_file())
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(raw["favorites"], ["fire"])
+                self.assertEqual(raw["groups"], [])
+                other = Deck()
+                other.load_library()
+                self.assertIn("fire", other.favorites)
+                other.set_favorite("fire", False)
+                gone = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(gone["favorites"], [])
+
+    def test_group_random_pool_only_those_ids(self):
+        deck = Deck(rng=random.Random(1))
+        deck.groups = [{"id": "g-desk", "name": "Desk mix", "ids": ["fire", "warp", "rain"]}]
+        deck._library_loaded = True
+        deck.set_group_random("g-desk", True)
+        self.assertTrue(deck.random_mode)
+        self.assertEqual(deck.random_group, "g-desk")
+        allowed = {"fire", "warp", "rain"}
+        self.assertIn(deck.left_id, allowed)
+        self.assertIn(deck.right_id, allowed)
+        self.assertNotIn(deck.left_id, {"sketch", "sand"})
+        kinds = {item["id"]: item["kind"] for item in catalog_meta()}
+        self.assertNotEqual(kinds.get(deck.left_id), "sketch")
+        for _ in range(24):
+            deck._due["left"] = 0.0
+            deck._due["right"] = 0.0
+            deck._advance_random(time.monotonic() + 40)
+            self.assertIn(deck.left_id, allowed)
+            self.assertIn(deck.right_id, allowed)
+            self.assertNotIn(deck.left_id, {"sketch", "sand"})
+        pool = deck._random_pool(set())
+        self.assertEqual(set(pool), allowed)
+        deck.set_random(True)
+        self.assertTrue(deck.random_mode)
+        self.assertIsNone(deck.random_group)
+        deck.set_group_random("g-desk", True)
+        deck.set_animation("left", "fishtank")
+        self.assertFalse(deck.random_mode)
+        self.assertIsNone(deck.random_group)
 
     def test_catalog_has_two_thousand_forty_two_unique_animations(self):
         items = catalog_meta()
@@ -131,7 +188,7 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.0.0", html)
+        self.assertIn("?v=2.1.0", html)
         self.assertNotIn("<h1>", html)
         self.assertIn("left-marquee", html)
         self.assertIn("Type a message", html)
@@ -143,6 +200,10 @@ class EngineTests(unittest.TestCase):
         self.assertIn("search-ghost", html)
         self.assertIn("search-fill", html)
         self.assertIn('id="type-filters"', html)
+        self.assertIn("(Favorites)", html)
+        self.assertIn('data-kind="favorites"', html)
+        self.assertIn("New group", html)
+        self.assertIn('id="groups"', html)
         self.assertIn('data-kind="game"', html)
         self.assertIn('data-kind="loop"', html)
         self.assertIn('data-kind="sketch"', html)
@@ -169,6 +230,13 @@ class EngineTests(unittest.TestCase):
         self.assertIn("/api/speed", js)
         self.assertIn("/api/text", js)
         self.assertIn("/api/random", js)
+        self.assertIn("/api/favorite", js)
+        self.assertIn("/api/groups", js)
+        self.assertIn("/api/group-random", js)
+        self.assertIn('"heart on" : "heart"', js)
+        self.assertIn("toggleHeart", js)
+        self.assertIn("activeGroup", js)
+        self.assertIn("New group", js)
         self.assertIn("fuzzyScore", js)
         self.assertIn("search-ghost", js)
         self.assertIn("paintsInk", js)
@@ -186,6 +254,9 @@ class EngineTests(unittest.TestCase):
         self.assertIn("scrollbar-color", css)
         self.assertIn(".type-filter", css)
         self.assertIn(".stage-tools", css)
+        self.assertIn("button.heart", css)
+        self.assertIn(".group-bubble", css)
+        self.assertIn(".group-random", css)
         self.assertIn("rail-left", html)
         self.assertIn("rail-right", html)
 

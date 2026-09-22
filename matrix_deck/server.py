@@ -45,6 +45,11 @@ class DeckHandler(SimpleHTTPRequestHandler):
         if path == "/api/health":
             self._json(200, {"ok": True, "version": __version__, "animations": len(catalog_meta())})
             return
+        if path == "/api/library":
+            data = self.deck.library_data()
+            data["randomGroup"] = self.deck.random_group
+            self._json(200, data)
+            return
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
@@ -127,7 +132,52 @@ class DeckHandler(SimpleHTTPRequestHandler):
         if path == "/api/random":
             enabled = bool(payload.get("enabled", True))
             self.deck.set_random(enabled)
-            self._json(200, {"ok": True, "random": self.deck.random_mode})
+            self._json(200, {"ok": True, "random": self.deck.random_mode, "randomGroup": self.deck.random_group})
+            return
+        if path == "/api/library":
+            data = self.deck.replace_library(payload)
+            self._json(200, {"ok": True, **data, "randomGroup": self.deck.random_group})
+            return
+        if path == "/api/favorite":
+            anim_id = str(payload.get("id", ""))
+            if not anim_id.strip():
+                self._json(400, {"ok": False, "error": "id required"})
+                return
+            data = self.deck.set_favorite(anim_id, bool(payload.get("on", True)))
+            self._json(200, {"ok": True, **data})
+            return
+        if path == "/api/groups":
+            name = str(payload.get("name", "")).strip()
+            if not name:
+                self._json(400, {"ok": False, "error": "name required"})
+                return
+            data = self.deck.add_group(name)
+            self._json(200, {"ok": True, **data})
+            return
+        if path == "/api/groups/delete":
+            group_id = str(payload.get("id", "")).strip()
+            if not group_id:
+                self._json(400, {"ok": False, "error": "id required"})
+                return
+            data = self.deck.delete_group(group_id)
+            self._json(200, {"ok": True, **data})
+            return
+        if path == "/api/groups/item":
+            group_id = str(payload.get("groupId", "")).strip()
+            anim_id = str(payload.get("animId", "")).strip()
+            if not group_id or not anim_id:
+                self._json(400, {"ok": False, "error": "groupId and animId required"})
+                return
+            data = self.deck.set_group_item(group_id, anim_id, bool(payload.get("on", True)))
+            self._json(200, {"ok": True, **data})
+            return
+        if path == "/api/group-random":
+            group_id = str(payload.get("groupId", "")).strip()
+            if not group_id:
+                self._json(400, {"ok": False, "error": "groupId required"})
+                return
+            self.deck.set_group_random(group_id, bool(payload.get("enabled", True)))
+            self._json(200, {"ok": True, "random": self.deck.random_mode, "randomGroup": self.deck.random_group})
             return
         if path == "/api/text":
             side = str(payload.get("side", "left"))

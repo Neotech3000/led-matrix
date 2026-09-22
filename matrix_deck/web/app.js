@@ -35,6 +35,7 @@ const searchEl = document.getElementById("search");
 const searchGhost = document.getElementById("search-ghost");
 const searchFill = document.getElementById("search-fill");
 const typeFilters = document.getElementById("type-filters");
+const groupsEl = document.getElementById("groups");
 const libraryLeft = document.getElementById("library-left");
 const libraryRight = document.getElementById("library-right");
 const leftText = document.getElementById("left-text");
@@ -45,6 +46,12 @@ const rightMarquee = document.getElementById("right-marquee");
 let catalog = [];
 let searchQuery = "";
 let kindFilter = "";
+let favorites = new Set();
+let groups = [];
+let activeGroup = "";
+let groupsStatus = "loading";
+let randomGroup = null;
+let lastGroupUiKey = "";
 let focus = "left";
 let drawing = null;
 let inputQueue = Promise.resolve();
@@ -239,10 +246,13 @@ function setFocus(side, { rebuild = true } = {}) {
 }
 
 function maybeRenderLibrary() {
-  const key = `${state.left_anim}|${state.right_anim}|${focus}|${searchQuery}|${kindFilter}|${catalog.map((c) => c.id).join(",")}`;
+  const favKey = [...favorites].sort().join(",");
+  const groupKey = groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(";");
+  const key = `${state.left_anim}|${state.right_anim}|${focus}|${searchQuery}|${kindFilter}|${activeGroup}|${favKey}|${groupKey}|${groupsStatus}|${catalog.map((c) => c.id).join(",")}`;
   if (key === lastLibKey) return;
   lastLibKey = key;
   renderLibrary();
+  maybeRenderGroups();
 }
 
 function kindLabel(kind) {
@@ -339,8 +349,36 @@ function fuzzyScore(query, item) {
 }
 
 function visibleCatalog() {
-  if (!kindFilter) return catalog;
-  return catalog.filter((item) => item.kind === kindFilter);
+  let items = catalog;
+  if (kindFilter === "favorites") {
+    items = items.filter((item) => favorites.has(item.id));
+  } else if (kindFilter) {
+    items = items.filter((item) => item.kind === kindFilter);
+  }
+  if (activeGroup) {
+    const group = groups.find((item) => item.id === activeGroup);
+    if (group) {
+      const ids = new Set(group.ids || []);
+      items = items.filter((item) => ids.has(item.id));
+    }
+  }
+  return items;
+}
+
+function emptyLibraryMessage() {
+  if (kindFilter === "favorites" && favorites.size === 0 && !activeGroup) {
+    return "No favorites yet. Tap the heart on a card.";
+  }
+  if (kindFilter === "favorites" && favorites.size === 0) {
+    return "No favorites yet. Tap the heart on a card.";
+  }
+  if (activeGroup) {
+    const group = groups.find((item) => item.id === activeGroup);
+    if (group && !(group.ids || []).length) {
+      return `Nothing in ${group.name} yet. Hearts file into this group.`;
+    }
+  }
+  return "No animations match.";
 }
 
 function rankedCatalog() {
@@ -421,9 +459,10 @@ function renderLibrary() {
 function fillLibrary(root, items, clickSide, searching = false) {
   root.innerHTML = "";
   if (!items.length) {
+    if (clickSide === "right" && !searching) return;
     const empty = document.createElement("p");
     empty.className = "empty-search";
-    empty.textContent = "No animations match.";
+    empty.textContent = emptyLibraryMessage();
     root.appendChild(empty);
     return;
   }
@@ -448,6 +487,20 @@ function fillLibrary(root, items, clickSide, searching = false) {
     kind.className = "badge kind";
     kind.textContent = kindLabel(item.kind);
     badges.appendChild(kind);
+
+    const heart = document.createElement("button");
+    heart.type = "button";
+    const liked = favorites.has(item.id);
+    heart.className = liked ? "heart on" : "heart";
+    heart.textContent = liked ? "♥" : "♡";
+    heart.title = liked ? "Remove favorite" : "Save as favorite";
+    heart.setAttribute("aria-label", liked ? `Unfavorite ${item.name}` : `Favorite ${item.name}`);
+    heart.setAttribute("aria-pressed", liked ? "true" : "false");
+    heart.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleHeart(item);
+    });
+    badges.appendChild(heart);
 
     for (const [side, on, label] of [
       ["left", leftOn, "L"],
@@ -480,6 +533,226 @@ function post(path, body) {
     }).catch(() => {})
   );
   return inputQueue;
+}
+
+async function postJson(path, body) {
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error("post");
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function applyLibrary(data) {
+  if (!data || typeof data !== "object") return;
+  if (Array.isArray(data.favorites)) favorites = new Set(data.favorites);
+  if (Array.isArray(data.groups)) groups = data.groups;
+  if ("randomGroup" in data) randomGroup = data.randomGroup || null;
+}
+
+function filingHint() {
+  if (!activeGroup) return "";
+  const group = groups.find((item) => item.id === activeGroup);
+  return group ? `Filing into ${group.name}` : "";
+}
+
+async function toggleHeart(item) {
+  const on = !favorites.has(item.id);
+  if (on) favorites.add(item.id);
+  else favorites.delete(item.id);
+  if (activeGroup) {
+    const group = groups.find((row) => row.id === activeGroup);
+    if (group) {
+      const ids = group.ids || [];
+      if (on && !ids.includes(item.id)) ids.push(item.id);
+      if (!on) group.ids = ids.filter((id) => id !== item.id);
+    }
+  }
+  lastLibKey = "";
+  maybeRenderLibrary();
+  const fav = await postJson("/api/favorite", { id: item.id, on });
+  if (fav) applyLibrary(fav);
+  if (activeGroup) {
+    const filed = await postJson("/api/groups/item", { groupId: activeGroup, animId: item.id, on });
+    if (filed) applyLibrary(filed);
+  }
+  lastLibKey = "";
+  maybeRenderLibrary();
+}
+
+function maybeRenderGroups() {
+  if (document.querySelector(".group-composer")) return;
+  const key = `${groupsStatus}|${activeGroup}|${randomGroup || ""}|${groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).length}`).join(",")}`;
+  if (key === lastGroupUiKey) return;
+  lastGroupUiKey = key;
+  renderGroups();
+}
+
+function renderGroups() {
+  if (!groupsEl) return;
+  groupsEl.innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "group-row";
+  row.id = "group-row";
+
+  if (groupsStatus === "loading") {
+    const status = document.createElement("p");
+    status.className = "groups-status";
+    status.id = "groups-status";
+    status.textContent = "Loading groups…";
+    row.appendChild(status);
+  } else if (groupsStatus === "error") {
+    const status = document.createElement("p");
+    status.className = "groups-status error";
+    status.id = "groups-status";
+    status.textContent = "Could not load groups.";
+    row.appendChild(status);
+  } else if (!groups.length) {
+    const status = document.createElement("p");
+    status.className = "groups-status";
+    status.id = "groups-status";
+    status.textContent = "No groups yet.";
+    row.appendChild(status);
+  }
+
+  for (const group of groups) {
+    const bubble = document.createElement("div");
+    bubble.className = activeGroup === group.id ? "group-bubble active" : "group-bubble";
+    bubble.dataset.groupId = group.id;
+
+    const select = document.createElement("button");
+    select.type = "button";
+    select.className = "group-select";
+    select.textContent = `${group.name} · ${(group.ids || []).length}`;
+    select.title = `Show ${group.name} and file hearts into it`;
+    select.addEventListener("click", () => {
+      activeGroup = activeGroup === group.id ? "" : group.id;
+      lastLibKey = "";
+      lastGroupUiKey = "";
+      maybeRenderLibrary();
+    });
+
+    const rand = document.createElement("button");
+    rand.type = "button";
+    rand.className = randomGroup === group.id ? "group-random on" : "group-random";
+    rand.textContent = randomGroup === group.id ? "Random · on" : "Random";
+    rand.title = `Cycle only ${group.name} for 10–30 seconds each`;
+    rand.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const enabled = randomGroup !== group.id;
+      const data = await postJson("/api/group-random", { groupId: group.id, enabled });
+      if (data) {
+        randomGroup = data.randomGroup || null;
+        if (randomBtn) {
+          const globalOn = !!data.random && !data.randomGroup;
+          randomBtn.classList.toggle("on", globalOn);
+          randomBtn.textContent = globalOn ? "Random · on" : "Random";
+        }
+      } else {
+        randomGroup = enabled ? group.id : null;
+      }
+      lastGroupUiKey = "";
+      maybeRenderGroups();
+    });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "group-delete";
+    del.textContent = "×";
+    del.setAttribute("aria-label", `Delete ${group.name}`);
+    del.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      if (!window.confirm(`Delete ${group.name}?`)) return;
+      const data = await postJson("/api/groups/delete", { id: group.id });
+      if (data && Array.isArray(data.groups)) groups = data.groups;
+      else groups = groups.filter((row) => row.id !== group.id);
+      if (activeGroup === group.id) activeGroup = "";
+      if (randomGroup === group.id) randomGroup = null;
+      lastLibKey = "";
+      lastGroupUiKey = "";
+      maybeRenderLibrary();
+    });
+
+    bubble.append(select, rand, del);
+    row.appendChild(bubble);
+  }
+
+  const newBtn = document.createElement("button");
+  newBtn.type = "button";
+  newBtn.className = "group-new";
+  newBtn.id = "new-group";
+  newBtn.textContent = "New group";
+  newBtn.addEventListener("click", beginNewGroup);
+  row.appendChild(newBtn);
+  groupsEl.appendChild(row);
+
+  const hint = document.createElement("p");
+  hint.className = "groups-hint";
+  hint.id = "groups-hint";
+  const text = filingHint();
+  hint.textContent = text;
+  hint.hidden = !text;
+  groupsEl.appendChild(hint);
+}
+
+function beginNewGroup() {
+  const row = document.getElementById("group-row") || (groupsEl && groupsEl.querySelector(".group-row"));
+  if (!row || row.querySelector(".group-composer")) return;
+  const form = document.createElement("form");
+  form.className = "group-composer";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.maxLength = 40;
+  input.placeholder = "Desk mix";
+  input.setAttribute("aria-label", "New group name");
+  const save = document.createElement("button");
+  save.type = "submit";
+  save.textContent = "Add";
+  form.append(input, save);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = input.value.trim();
+    if (!name) {
+      input.focus();
+      return;
+    }
+    const data = await postJson("/api/groups", { name });
+    if (data && Array.isArray(data.groups)) {
+      groups = data.groups;
+      groupsStatus = "ready";
+      if (data.group && data.group.id) activeGroup = data.group.id;
+    } else if (!data) {
+      groupsStatus = "error";
+    }
+    lastLibKey = "";
+    lastGroupUiKey = "";
+    maybeRenderLibrary();
+  });
+  const newBtn = row.querySelector(".group-new");
+  if (newBtn) row.insertBefore(form, newBtn);
+  else row.appendChild(form);
+  input.focus();
+}
+
+async function loadLibrary() {
+  try {
+    const res = await fetch("/api/library", { cache: "no-store" });
+    if (!res.ok) throw new Error("library");
+    const data = await res.json();
+    applyLibrary(data);
+    groupsStatus = "ready";
+  } catch {
+    groupsStatus = "error";
+  }
+  lastLibKey = "";
+  lastGroupUiKey = "";
+  maybeRenderLibrary();
 }
 
 function clearOverlay(side) {
@@ -686,7 +959,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -766,9 +1039,16 @@ async function tick() {
     if (document.activeElement !== speedEl && typeof data.speed === "number") {
       speedEl.value = Math.round(data.speed * 100);
     }
+    if (Array.isArray(data.favorites)) favorites = new Set(data.favorites);
+    if (Array.isArray(data.groups)) {
+      groups = data.groups;
+      if (groupsStatus === "loading") groupsStatus = "ready";
+    }
+    if ("randomGroup" in data) randomGroup = data.randomGroup || null;
     if (randomBtn) {
-      randomBtn.classList.toggle("on", !!data.random);
-      randomBtn.textContent = data.random ? "Random · on" : "Random";
+      const globalOn = !!data.random && !data.randomGroup;
+      randomBtn.classList.toggle("on", globalOn);
+      randomBtn.textContent = globalOn ? "Random · on" : "Random";
     }
     const texts = data.text || {};
     showMarqueeFields();
@@ -826,7 +1106,10 @@ randomBtn.addEventListener("click", () => {
   const on = !randomBtn.classList.contains("on");
   randomBtn.classList.toggle("on", on);
   randomBtn.textContent = on ? "Random · on" : "Random";
+  randomGroup = null;
+  lastGroupUiKey = "";
   post("/api/random", { enabled: on });
+  maybeRenderGroups();
 });
 
 searchEl.addEventListener("input", () => {
@@ -904,6 +1187,9 @@ bindText(leftText, "left");
 bindText(rightText, "right");
 
 setFocus("left");
+const newGroupBtn = document.getElementById("new-group");
+if (newGroupBtn) newGroupBtn.addEventListener("click", beginNewGroup);
+loadLibrary();
 
 function loop() {
   tick().finally(() => setTimeout(loop, 50));

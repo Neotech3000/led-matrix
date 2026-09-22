@@ -1,7 +1,10 @@
 import json
+import os
+import tempfile
 import threading
 import unittest
 from http.client import HTTPConnection
+from unittest.mock import patch
 
 from matrix_deck import HEIGHT
 from matrix_deck.anim import create_animation
@@ -382,3 +385,60 @@ class ApiTests(unittest.TestCase):
         status, data = self.post("/api/key", {"side": "middle", "code": "Space"})
         self.assertEqual(status, 400)
         self.assertFalse(data["ok"])
+
+
+class LibraryApiTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.home = patch.dict(os.environ, {"HOME": self.tmp.name})
+        self.home.start()
+        self.deck = Deck()
+        self.httpd = make_server(self.deck, "127.0.0.1", 0)
+        self.port = self.httpd.server_address[1]
+        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        self.home.stop()
+        self.tmp.cleanup()
+
+    def get(self, path):
+        conn = HTTPConnection("127.0.0.1", self.port, timeout=2)
+        conn.request("GET", path)
+        response = conn.getresponse()
+        data = json.loads(response.read().decode())
+        conn.close()
+        return response.status, data
+
+    def post(self, path, payload):
+        conn = HTTPConnection("127.0.0.1", self.port, timeout=2)
+        body = json.dumps(payload).encode()
+        conn.request("POST", path, body=body, headers={"Content-Type": "application/json"})
+        response = conn.getresponse()
+        data = json.loads(response.read().decode())
+        conn.close()
+        return response.status, data
+
+    def test_favorite_and_group_endpoints(self):
+        status, data = self.get("/api/library")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["favorites"], [])
+        self.assertEqual(data["groups"], [])
+        status, data = self.post("/api/favorite", {"id": "fire", "on": True})
+        self.assertEqual(status, 200)
+        self.assertIn("fire", data["favorites"])
+        status, data = self.post("/api/groups", {"name": "Desk mix"})
+        self.assertEqual(status, 200)
+        self.assertEqual(len(data["groups"]), 1)
+        group_id = data["group"]["id"]
+        status, data = self.post("/api/groups/item", {"groupId": group_id, "animId": "warp", "on": True})
+        self.assertIn("warp", data["groups"][0]["ids"])
+        status, data = self.post("/api/group-random", {"groupId": group_id, "enabled": True})
+        self.assertTrue(data["random"])
+        self.assertEqual(data["randomGroup"], group_id)
+        self.assertIn(self.deck.left_id, {"warp"})
+        status, data = self.post("/api/groups/delete", {"id": group_id})
+        self.assertEqual(data["groups"], [])
+        self.assertFalse(self.deck.random_mode)

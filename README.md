@@ -90,7 +90,9 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
 - **Search** and the type chips sit **under the two live wells**, not in the top bar. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
-- Compact type chips **All** **(Game)** **(Loop)** **(Draw)** **(Utility)** **(Weather)** **(Music)** **(Puzzle)** **(Status)** **(Ambient)** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels.
+- Compact type chips **All** **(Favorites)** **(Game)** **(Loop)** **(Draw)** **(Utility)** **(Weather)** **(Music)** **(Puzzle)** **(Status)** **(Ambient)** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels.
+- **Hearts** on each card save a global favorite. The **(Favorites)** chip shows only those. Click a named **group** bubble to filter to that group and file further hearts into it. **New group** makes another named mix. Each bubble has its own **Random** that cycles only that group (10–30s, both wells, skip sketch/sand). Top-bar **Random** still walks the whole catalog. Group random and catalog Random are mutually exclusive; assigning a card by hand turns that shuffle off.
+- Favorites and groups are saved in `~/.local/share/led-matrix/library.json`.
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch, falling sand, and every other draw mode stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
 - The live preview stays in the **middle**; half the catalog is on the left, the rest on the right.
 
