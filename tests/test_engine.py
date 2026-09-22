@@ -126,8 +126,7 @@ class EngineTests(unittest.TestCase):
         ids = [item["id"] for item in items]
         self.assertEqual(len(ids), len(catalog_meta()))
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertGreaterEqual(len(ids), 850)
-        self.assertLessEqual(len(ids), 1000)
+        self.assertEqual(len(ids), 903)
         self.assertTrue(all("drag" in item for item in items))
         self.assertTrue(next(item for item in items if item["id"] == "sketch")["drag"])
         for required in (
@@ -226,7 +225,7 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.2.1", html)
+        self.assertIn("?v=2.3.0", html)
         self.assertNotIn("<h1>", html)
         self.assertIn("left-marquee", html)
         self.assertIn("Type a message", html)

@@ -8,12 +8,10 @@ import tempfile
 from pathlib import Path
 from uuid import uuid4
 
+from matrix_deck.paths import data_dir
+
 MAX_NAME = 40
 MAX_ID = 64
-
-
-def data_dir() -> Path:
-    return Path.home() / ".local" / "share" / "led-matrix"
 
 
 def library_path() -> Path:

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Install LED Matrix as a normal desktop app on Omarchy / Linux.
+# Windows: py -m matrix_deck   macOS: python3 -m matrix_deck
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"

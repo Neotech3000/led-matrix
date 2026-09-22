@@ -20,6 +20,6 @@ Include the version (`python3 -c "import matrix_deck; print(matrix_deck.__versio
 
 ## Hardening tips
 
-- Keep the GUI launcher (`led-matrix`), which binds to `127.0.0.1`.
+- Keep the GUI launcher (`led-matrix` / `python3 -m matrix_deck --gui`), which binds to `127.0.0.1`.
 - Do not pass `--host 0.0.0.0` on untrusted networks.
-- The udev rule grants your logged-in session access to the modules (`TAG+="uaccess"`). Do not chmod `666` the tty devices instead.
+- On Linux the udev rule grants your logged-in session access to the modules (`TAG+="uaccess"`). Do not chmod `666` the tty devices instead. Windows and macOS do not use udev; Windows should use the built-in USB CDC (usbser) COM port.

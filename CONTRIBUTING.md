@@ -2,7 +2,7 @@
 
 Thanks for helping make the Framework Laptop 16 LED wells easier to use.
 
-This is a small Python 3.11+ project with **no third-party runtime dependencies**. The USB driver uses the standard library (`termios`), on purpose, so Omarchy / Arch users do not have to fight `pacman` or `pyserial`.
+This is a small Python 3.11+ project with **no third-party runtime dependencies**. Linux and macOS use the standard library (`termios`) for USB CDC-ACM. Windows uses Win32 `CreateFile` via ctypes. Optional extra: `pip install pyserial` (`matrix-deck[serial]`) as a discovery fallback.
 
 ## Run it locally
 
@@ -13,9 +13,9 @@ python3 -m unittest discover -s tests -v
 python3 -m matrix_deck --simulate --host 127.0.0.1 --port 43173
 ```
 
-Then open http://127.0.0.1:43173. `--simulate` skips USB, so you can work on animations without the laptop modules plugged in.
+Then open http://127.0.0.1:43173. `--simulate` skips USB, so you can work on animations without the laptop modules plugged in. Same command works on macOS; on Windows use `py -m matrix_deck --simulate --host 127.0.0.1 --port 43173`.
 
-On the laptop, `./install.sh` adds an **LED Matrix** app menu entry. `./uninstall.sh` removes it.
+On Linux, `./install.sh` adds an **LED Matrix** app menu entry. `./uninstall.sh` removes it. Windows/macOS run `python -m matrix_deck --gui` (or `scripts/led-matrix.cmd`).
 
 ## Tests
 
@@ -41,9 +41,9 @@ Keep drawing cheap. The engine runs around 20 fps and pushes a full 9×34 greysc
 
 ## Hardware notes
 
-The modules are USB CDC-ACM at 115200 baud, VID `32AC` PID `0020`. Frames are packed in `matrix_deck/protocol.py` (`StageGreyCol` + `FlushCols`). Do not add `pyserial` unless there is a strong reason; the native driver exists so a fresh Omarchy install works with stock Python.
+The modules are USB CDC-ACM at 115200 baud, VID `32AC` PID `0020`. Frames are packed in `matrix_deck/protocol.py` (`StageGreyCol` + `FlushCols`). Keep the Linux `termios` driver so a fresh Omarchy install works with stock Python. Windows COM ports and macOS `cu.usbmodem*` live in the same `hardware.py` module; do not add Electron or a second UI toolkit.
 
-Left vs right is guessed from `/dev/serial/by-path`. If your wells are swapped, document `--swap` rather than hard-coding a new USB order.
+Left vs right is guessed from discovery order (first port = right well, matching Linux ACM). If wells are swapped on Windows or macOS, document `--swap` rather than hard-coding a new USB order.
 
 ## Pull requests
 

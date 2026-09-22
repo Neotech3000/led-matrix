@@ -1,14 +1,16 @@
 [project]
 name = "matrix-deck"
-version = "2.2.1"
+version = "2.3.0"
 description = "Desktop app for the Framework Laptop 16 LED Matrix input modules"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Enoch Lawrence", email = "ee.adjahoe@gmail.com" }]
-keywords = ["framework", "laptop-16", "led-matrix", "omarchy", "linux"]
+keywords = ["framework", "laptop-16", "led-matrix", "linux", "windows", "macos"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -20,6 +22,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
+serial = ["pyserial>=3.5"]
 dev = ["pytest>=8.0"]
 
 [project.scripts]

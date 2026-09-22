@@ -1,1 +1,2 @@
-# No pip packages required. Python 3.11+ is enough.
+# No pip packages required. Python 3.11+ is enough on Linux, macOS, and Windows.
+# Optional discovery fallback: pip install pyserial
