@@ -311,6 +311,9 @@ canvas {
   gap: 10px 14px;
   padding: 2px 0 4px;
 }
+.stage-tools .type-filters {
+  flex: 1 1 100%;
+}
 .stage-tools .search-field {
   width: 220px;
 }

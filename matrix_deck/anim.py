@@ -11,7 +11,7 @@ class Animation:
     id = ""
     name = ""
     description = ""
-    kind = "loop"  # loop | game | sketch | utility
+    kind = "loop"  # loop | game | sketch | utility | weather | music | puzzle | status | ambient
     drag = False
 
     def step(self, dt: float, canvas: Canvas) -> None:
@@ -49,9 +49,25 @@ class Animation:
         }
 
 
+_ORDER_CACHE: list[str] | None = None
+_FACTORY_CACHE: dict[str, type[Animation]] | None = None
+
+
 def animation_order() -> list[str]:
+    global _ORDER_CACHE
+    if _ORDER_CACHE is not None:
+        return _ORDER_CACHE
+    from matrix_deck.ambient import animation_ids as ambient_ids
+    from matrix_deck.game_pack import animation_ids as game_pack_ids
+    from matrix_deck.music_pack import animation_ids as music_ids
     from matrix_deck.pack import animation_ids as pack_ids
     from matrix_deck.pack2 import animation_ids as pack2_ids
+    from matrix_deck.pack3 import animation_ids as pack3_ids
+    from matrix_deck.puzzle import animation_ids as puzzle_ids
+    from matrix_deck.sketch_pack import animation_ids as sketch_ids
+    from matrix_deck.status import animation_ids as status_ids
+    from matrix_deck.utility_pack import animation_ids as utility_pack_ids
+    from matrix_deck.weather import animation_ids as weather_ids
 
     core = [
         "flappy",
@@ -148,11 +164,44 @@ def animation_order() -> list[str]:
         "bounce",
         "marquee",
     ]
-    return core + pack_ids() + pack2_ids()
+    _ORDER_CACHE = (
+        core
+        + pack_ids()
+        + pack2_ids()
+        + pack3_ids()
+        + game_pack_ids()
+        + sketch_ids()
+        + utility_pack_ids()
+        + weather_ids()
+        + music_ids()
+        + puzzle_ids()
+        + status_ids()
+        + ambient_ids()
+    )
+    return _ORDER_CACHE
 
 
 def factories() -> dict[str, type[Animation]]:
-    from matrix_deck import effects, extra, games, pack, pack2, utility
+    global _FACTORY_CACHE
+    if _FACTORY_CACHE is not None:
+        return _FACTORY_CACHE
+    from matrix_deck import (
+        ambient,
+        effects,
+        extra,
+        game_pack,
+        games,
+        music_pack,
+        pack,
+        pack2,
+        pack3,
+        puzzle,
+        sketch_pack,
+        status,
+        utility,
+        utility_pack,
+        weather,
+    )
 
     table: dict[str, type[Animation]] = {
         "flappy": FlappyAnim,
@@ -232,6 +281,16 @@ def factories() -> dict[str, type[Animation]]:
     table.update(games.factories())
     table.update(pack.factories())
     table.update(pack2.factories())
+    table.update(pack3.factories())
+    table.update(game_pack.factories())
+    table.update(sketch_pack.factories())
+    table.update(utility_pack.factories())
+    table.update(weather.factories())
+    table.update(music_pack.factories())
+    table.update(puzzle.factories())
+    table.update(status.factories())
+    table.update(ambient.factories())
+    _FACTORY_CACHE = table
     return table
 
 

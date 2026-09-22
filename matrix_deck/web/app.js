@@ -249,6 +249,11 @@ function kindLabel(kind) {
   if (kind === "game") return "Game";
   if (kind === "sketch") return "Draw";
   if (kind === "utility") return "Utility";
+  if (kind === "weather") return "Weather";
+  if (kind === "music") return "Music";
+  if (kind === "puzzle") return "Puzzle";
+  if (kind === "status") return "Status";
+  if (kind === "ambient") return "Ambient";
   return "Loop";
 }
 

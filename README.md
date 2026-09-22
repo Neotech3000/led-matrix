@@ -90,8 +90,8 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
 - **Search** and the type chips sit **under the two live wells**, not in the top bar. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
-- Compact type chips **All** **(Game)** **(Loop)** **(Draw)** **(Utility)** filter the library; fuzzy search still applies on top of the selected type. On a phone they stack under the bezels.
-- **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch and falling sand stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
+- Compact type chips **All** **(Game)** **(Loop)** **(Draw)** **(Utility)** **(Weather)** **(Music)** **(Puzzle)** **(Status)** **(Ambient)** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels.
+- **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch, falling sand, and every other draw mode stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
 - The live preview stays in the **middle**; half the catalog is on the left, the rest on the right.
 
 ### Games, Sketch, Marquee, Utilities
@@ -121,9 +121,11 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 | **ECG** | A scrolling EKG trace (no heart icon). |
 | **Hearts** | Lots of falling hearts. |
 
-**Utilities** (the (Utility) chip): Clock, Timer, Pomodoro (25/5), Stopwatch, UTC, Date, Week number, Fuzzy clock (FIVE PAST), Binary clock, Seconds bar, Alarm (flash at :00), Tap tempo, Battery, CPU pulse, Moon phase, Dice, Coin flip, Progress, Chess clock, Breath pacer (box 4-4-4-4), Water reminder, Focus bar.
+**Utilities** (the (Utility) chip): Clock, Timer, Pomodoro (25/5), Stopwatch, UTC, Date, Week number, Fuzzy clock (FIVE PAST), Binary clock, Seconds bar, Alarm (flash at :00), Tap tempo, Battery, CPU pulse, Moon phase, Dice, Coin flip, Progress, Chess clock, Breath pacer (box 4-4-4-4), Water reminder, Focus bar, plus two hundred more timers, dice, calendars, reminders, and converters.
 
-There are **242** animations. Click a well, then use the keyboard for games and timers.
+New categories (200 each): **weather** (skies, rain, seasons, forecast-as-art), **music** (staff, beat, VU, piano roll), **puzzle** (lights, match, mazes, solitaire-ish toys), **status** (bars, badges, simulated readouts), **ambient** (calm desk atmospheres).
+
+There are **2042** animations. Click a well, then use the keyboard for games and timers.
 
 ## If left and right are swapped
 

@@ -74,7 +74,17 @@ class Deck:
                 self._install_random("right", now)
 
     def _random_pool(self, avoid: set[str]) -> list[str]:
-        ids = [anim_id for anim_id in animation_order() if anim_id not in SKIP_RANDOM]
+        from matrix_deck.anim import factories
+
+        table = factories()
+        ids = []
+        for anim_id in animation_order():
+            if anim_id in SKIP_RANDOM:
+                continue
+            cls = table.get(anim_id)
+            if cls is not None and getattr(cls, "kind", "loop") == "sketch":
+                continue
+            ids.append(anim_id)
         pool = [anim_id for anim_id in ids if anim_id not in avoid]
         return pool or ids
 
