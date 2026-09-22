@@ -482,7 +482,7 @@ button.card-add.on {
 }
 .group-add:hover { border-color: rgba(255, 116, 79, 0.55); color: var(--orange); }
 .group-add.on {
-  color: var(--ink);
+  color: var(--orange);
   border-color: rgba(255, 116, 79, 0.75);
   background: rgba(255, 116, 79, 0.16);
 }

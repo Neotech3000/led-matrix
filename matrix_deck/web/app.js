@@ -382,13 +382,12 @@ function visibleCatalog() {
   } else if (kindFilter) {
     items = items.filter((item) => item.kind === kindFilter);
   }
-  // Viewing a populated group filters to its ids. Selection mode does not —
-  // adding does not require a library filter; keep All/type/search.
-  // Empty groups keep the full catalog so the view is not a blank list.
+  // Viewing a group filters to its ids. Selection mode does not — adding to an
+  // empty group does not require a library filter; keep All/type/search.
   if (activeGroup && !selectionGroup) {
     const group = activeGroupRecord();
     const ids = groupIds(group);
-    if (group && ids.length > 0) {
+    if (group) {
       const want = new Set(ids);
       items = items.filter((item) => want.has(item.id));
     }
@@ -622,7 +621,7 @@ function selectionGroupRecord() {
 function filingHint() {
   if (!selectionGroup) return "";
   const group = selectionGroupRecord();
-  return group ? `Adding to ${group.name} — tap cards to add. Esc or Done to exit.` : "";
+  return group ? `Adding to ${group.name} — tap cards to add` : "";
 }
 
 function exitSelectionMode() {
