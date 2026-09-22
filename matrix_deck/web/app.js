@@ -49,7 +49,7 @@ let kindFilter = "";
 let favorites = new Set();
 let groups = [];
 let activeGroup = "";
-let filingBrowse = false;
+let selectionGroup = "";
 let groupsStatus = "loading";
 let randomGroup = null;
 let lastGroupUiKey = "";
@@ -264,17 +264,19 @@ function mergeGroups(serverGroups) {
   if (groupsStatus !== "ready") groupsStatus = "ready";
   if (activeGroup && !groups.some((group) => group.id === activeGroup)) {
     activeGroup = "";
-    filingBrowse = false;
+  }
+  if (selectionGroup && !groups.some((group) => group.id === selectionGroup)) {
+    selectionGroup = "";
   }
 }
 
 function maybeRenderLibrary() {
   const favKey = [...favorites].sort().join(",");
   const groupKey = groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(";");
-  const key = `${state.left_anim}|${state.right_anim}|${focus}|${searchQuery}|${kindFilter}|${activeGroup}|${filingBrowse}|${favKey}|${groupKey}|${groupsStatus}|${catalog.map((c) => c.id).join(",")}`;
+  const key = `${state.left_anim}|${state.right_anim}|${focus}|${searchQuery}|${kindFilter}|${activeGroup}|${selectionGroup}|${favKey}|${groupKey}|${groupsStatus}|${catalog.map((c) => c.id).join(",")}`;
   if (key === lastLibKey) return;
   lastLibKey = key;
-  document.body.classList.toggle("filing", !!activeGroup);
+  document.body.classList.toggle("filing", !!selectionGroup);
   renderLibrary();
   maybeRenderGroups();
 }
@@ -379,12 +381,12 @@ function visibleCatalog() {
   } else if (kindFilter) {
     items = items.filter((item) => item.kind === kindFilter);
   }
-  if (activeGroup) {
+  // Viewing a group filters to its ids. Selection mode does not — adding to an
+  // empty group does not require a library filter; keep All/type/search.
+  if (activeGroup && !selectionGroup) {
     const group = activeGroupRecord();
     const ids = groupIds(group);
-    // Empty groups keep the full catalog so you can file items in.
-    // Add more… also reveals the catalog while still filing.
-    if (group && ids.length > 0 && !filingBrowse) {
+    if (group) {
       const want = new Set(ids);
       items = items.filter((item) => want.has(item.id));
     }
@@ -398,12 +400,6 @@ function emptyLibraryMessage() {
   }
   if (kindFilter === "favorites" && favorites.size === 0) {
     return "No favorites yet. Tap the heart on a card.";
-  }
-  if (activeGroup) {
-    const group = activeGroupRecord();
-    if (group && groupIds(group).length === 0) {
-      return `Tap hearts to add to ${group.name}`;
-    }
   }
   return "No animations match.";
 }
@@ -520,7 +516,8 @@ function fillLibrary(root, items, clickSide, searching = false) {
     const liked = favorites.has(item.id);
     heart.className = liked ? "heart on" : "heart";
     heart.textContent = liked ? "♥" : "♡";
-    const filing = !!activeGroup;
+    const filing = !!selectionGroup;
+    const filingRecord = filing ? selectionGroupRecord() : null;
     heart.title = filing
       ? liked
         ? `Unfavorite and remove ${item.name} from the group`
@@ -536,16 +533,15 @@ function fillLibrary(root, items, clickSide, searching = false) {
     });
     badges.appendChild(heart);
 
-    if (activeGroup) {
-      const group = activeGroupRecord();
-      const inGroup = groupIds(group).includes(item.id);
+    if (filing) {
+      const inGroup = groupIds(filingRecord).includes(item.id);
       const plus = document.createElement("button");
       plus.type = "button";
       plus.className = inGroup ? "card-add on" : "card-add";
       plus.textContent = inGroup ? "−" : "+";
       plus.title = inGroup
-        ? `Remove ${item.name} from ${group ? group.name : "group"}`
-        : `Add ${item.name} to ${group ? group.name : "group"}`;
+        ? `Remove ${item.name} from ${filingRecord ? filingRecord.name : "group"}`
+        : `Add ${item.name} to ${filingRecord ? filingRecord.name : "group"}`;
       plus.setAttribute("aria-label", plus.title);
       plus.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -571,7 +567,15 @@ function fillLibrary(root, items, clickSide, searching = false) {
     }
 
     card.append(title, blurb, badges);
-    card.addEventListener("click", () => assign(clickSide, item.id));
+    card.addEventListener("click", () => {
+      if (selectionGroup) {
+        const group = selectionGroupRecord();
+        const inGroup = groupIds(group).includes(item.id);
+        toggleGroupItem(item, !inGroup);
+        return;
+      }
+      assign(clickSide, item.id);
+    });
     root.appendChild(card);
   }
 }
@@ -608,10 +612,49 @@ function applyLibrary(data) {
   if ("randomGroup" in data) randomGroup = data.randomGroup || null;
 }
 
+function selectionGroupRecord() {
+  return groups.find((item) => item.id === selectionGroup) || null;
+}
+
 function filingHint() {
-  if (!activeGroup) return "";
-  const group = activeGroupRecord();
-  return group ? `Filing into ${group.name} — tap hearts to add` : "";
+  if (!selectionGroup) return "";
+  const group = selectionGroupRecord();
+  return group ? `Adding to ${group.name} — tap cards to add` : "";
+}
+
+function exitSelectionMode() {
+  if (!selectionGroup) return;
+  selectionGroup = "";
+  lastLibKey = "";
+  lastGroupUiKey = "";
+  maybeRenderLibrary();
+}
+
+function enterSelectionMode(groupId) {
+  if (selectionGroup === groupId) {
+    selectionGroup = "";
+  } else {
+    selectionGroup = groupId;
+    activeGroup = "";
+  }
+  lastLibKey = "";
+  lastGroupUiKey = "";
+  maybeRenderLibrary();
+}
+
+function openGroupView(groupId) {
+  if (selectionGroup === groupId) {
+    selectionGroup = "";
+    activeGroup = groupId;
+  } else if (activeGroup === groupId) {
+    activeGroup = "";
+  } else {
+    selectionGroup = "";
+    activeGroup = groupId;
+  }
+  lastLibKey = "";
+  lastGroupUiKey = "";
+  maybeRenderLibrary();
 }
 
 function setGroupMembership(group, animId, on) {
@@ -625,15 +668,15 @@ async function toggleHeart(item) {
   const on = !favorites.has(item.id);
   if (on) favorites.add(item.id);
   else favorites.delete(item.id);
-  if (activeGroup) {
-    setGroupMembership(activeGroupRecord(), item.id, on);
+  if (selectionGroup) {
+    setGroupMembership(selectionGroupRecord(), item.id, on);
   }
   lastLibKey = "";
   maybeRenderLibrary();
   const fav = await postJson("/api/favorite", { id: item.id, on });
   if (fav) applyLibrary(fav);
-  if (activeGroup) {
-    const filed = await postJson("/api/groups/item", { groupId: activeGroup, animId: item.id, on });
+  if (selectionGroup) {
+    const filed = await postJson("/api/groups/item", { groupId: selectionGroup, animId: item.id, on });
     if (filed) applyLibrary(filed);
   }
   lastLibKey = "";
@@ -641,11 +684,11 @@ async function toggleHeart(item) {
 }
 
 async function toggleGroupItem(item, on) {
-  if (!activeGroup) return;
-  setGroupMembership(activeGroupRecord(), item.id, on);
+  if (!selectionGroup) return;
+  setGroupMembership(selectionGroupRecord(), item.id, on);
   lastLibKey = "";
   maybeRenderLibrary();
-  const filed = await postJson("/api/groups/item", { groupId: activeGroup, animId: item.id, on });
+  const filed = await postJson("/api/groups/item", { groupId: selectionGroup, animId: item.id, on });
   if (filed) applyLibrary(filed);
   lastLibKey = "";
   maybeRenderLibrary();
@@ -653,7 +696,7 @@ async function toggleGroupItem(item, on) {
 
 function maybeRenderGroups(force = false) {
   if (!force && document.querySelector(".group-composer")) return;
-  const key = `${groupsStatus}|${activeGroup}|${filingBrowse}|${randomGroup || ""}|${groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(",")}`;
+  const key = `${groupsStatus}|${activeGroup}|${selectionGroup}|${randomGroup || ""}|${groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(",")}`;
   if (!force && key === lastGroupUiKey) return;
   lastGroupUiKey = key;
   renderGroups();
@@ -689,24 +732,31 @@ function renderGroups() {
   for (const group of groups) {
     const bubble = document.createElement("div");
     bubble.className = activeGroup === group.id ? "group-bubble active" : "group-bubble";
+    if (selectionGroup === group.id) bubble.classList.add("selecting");
     bubble.dataset.groupId = group.id;
 
     const select = document.createElement("button");
     select.type = "button";
     select.className = "group-select";
     select.textContent = `${group.name} · ${(group.ids || []).length}`;
-    select.title = `Show ${group.name} and file hearts into it`;
+    select.title = `Show ${group.name}`;
     select.addEventListener("click", () => {
-      if (activeGroup === group.id) {
-        activeGroup = "";
-        filingBrowse = false;
-      } else {
-        activeGroup = group.id;
-        filingBrowse = false;
-      }
-      lastLibKey = "";
-      lastGroupUiKey = "";
-      maybeRenderLibrary();
+      openGroupView(group.id);
+    });
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = selectionGroup === group.id ? "group-add on" : "group-add";
+    add.setAttribute("data-add", "true");
+    add.textContent = "+";
+    add.title = selectionGroup === group.id
+      ? `Stop adding to ${group.name}`
+      : `Add animations to ${group.name}`;
+    add.setAttribute("aria-label", add.title);
+    add.setAttribute("aria-pressed", selectionGroup === group.id ? "true" : "false");
+    add.addEventListener("click", (event) => {
+      event.stopPropagation();
+      enterSelectionMode(group.id);
     });
 
     const rand = document.createElement("button");
@@ -743,17 +793,15 @@ function renderGroups() {
       const data = await postJson("/api/groups/delete", { id: group.id });
       if (data && Array.isArray(data.groups)) groups = data.groups;
       else groups = groups.filter((row) => row.id !== group.id);
-      if (activeGroup === group.id) {
-        activeGroup = "";
-        filingBrowse = false;
-      }
+      if (activeGroup === group.id) activeGroup = "";
+      if (selectionGroup === group.id) selectionGroup = "";
       if (randomGroup === group.id) randomGroup = null;
       lastLibKey = "";
       lastGroupUiKey = "";
       maybeRenderLibrary();
     });
 
-    bubble.append(select, rand, del);
+    bubble.append(select, add, rand, del);
     row.appendChild(bubble);
   }
 
@@ -774,30 +822,12 @@ function renderGroups() {
   hint.hidden = !text;
   groupsEl.appendChild(hint);
 
-  const group = activeGroupRecord();
-  if (group) {
-    const ids = groupIds(group);
-    if (ids.length === 0 || filingBrowse) {
-      const banner = document.createElement("p");
-      banner.className = "filing-banner";
-      banner.id = "filing-banner";
-      banner.textContent = `Tap hearts to add to ${group.name}`;
-      groupsEl.appendChild(banner);
-    }
-    if (ids.length > 0) {
-      const more = document.createElement("button");
-      more.type = "button";
-      more.className = "add-more";
-      more.id = "add-more";
-      more.textContent = filingBrowse ? "Show group only" : "Add more…";
-      more.addEventListener("click", () => {
-        filingBrowse = !filingBrowse;
-        lastLibKey = "";
-        lastGroupUiKey = "";
-        maybeRenderLibrary();
-      });
-      groupsEl.appendChild(more);
-    }
+  if (selectionGroup && text) {
+    const banner = document.createElement("p");
+    banner.className = "filing-banner";
+    banner.id = "filing-banner";
+    banner.textContent = text;
+    groupsEl.appendChild(banner);
   }
 }
 
@@ -832,8 +862,8 @@ function beginNewGroup() {
         groups = groups.concat([{ id: data.group.id, name: data.group.name, ids: data.group.ids || [] }]);
       }
       groupsStatus = "ready";
-      activeGroup = data.group.id;
-      filingBrowse = false;
+      activeGroup = "";
+      selectionGroup = data.group.id;
     } else if (!data) {
       groupsStatus = "error";
     }
@@ -1067,7 +1097,7 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .add-more, .filing-banner, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .filing-banner, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -1186,6 +1216,11 @@ rightBezel.addEventListener("contextmenu", (event) => event.preventDefault());
 
 window.addEventListener("keydown", (event) => {
   if (event.target && ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) {
+    return;
+  }
+  if (event.code === "Escape" && selectionGroup) {
+    event.preventDefault();
+    exitSelectionMode();
     return;
   }
   if (IGNORE_KEYS.has(event.code)) return;

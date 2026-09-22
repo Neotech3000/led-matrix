@@ -463,6 +463,29 @@ button.card-add.on {
   cursor: pointer;
 }
 .group-select { color: var(--ink); }
+.group-add {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.group-add:hover { border-color: rgba(255, 116, 79, 0.55); color: var(--orange); }
+.group-add.on {
+  color: var(--orange);
+  border-color: rgba(255, 116, 79, 0.75);
+  background: rgba(255, 116, 79, 0.16);
+}
+.group-bubble.selecting {
+  border-color: rgba(255, 116, 79, 0.45);
+}
 .group-random {
   appearance: none;
   border: 1px solid var(--line);
