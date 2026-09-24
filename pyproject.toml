@@ -1,6 +1,6 @@
 [project]
 name = "matrix-deck"
-version = "2.3.1"
+version = "2.4.0"
 description = "Desktop app for the Framework Laptop 16 LED Matrix input modules"
 readme = "README.md"
 requires-python = ">=3.11"

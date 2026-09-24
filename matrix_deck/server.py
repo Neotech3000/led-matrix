@@ -12,6 +12,7 @@ from pathlib import Path
 from matrix_deck import __version__
 from matrix_deck.anim import catalog_meta
 from matrix_deck.engine import Deck
+from matrix_deck.theme import current_theme, theme_revision
 
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 
@@ -37,13 +38,18 @@ class DeckHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
         if path == "/api/frame":
-            self._json(200, self.deck.snapshot())
+            snap = self.deck.snapshot()
+            snap["themeRev"] = theme_revision()
+            self._json(200, snap)
             return
         if path == "/api/animations":
             self._json(200, {"animations": catalog_meta()})
             return
         if path == "/api/health":
             self._json(200, {"ok": True, "version": __version__, "animations": len(catalog_meta())})
+            return
+        if path == "/api/theme":
+            self._json(200, current_theme())
             return
         if path == "/api/library":
             data = self.deck.library_data()

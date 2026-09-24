@@ -67,6 +67,14 @@ const lastPixels = {
   left: new Array(PIXELS).fill(0),
   right: new Array(PIXELS).fill(0),
 };
+const THEME_CSS = {
+  accent: "--accent",
+  ink: "--ink",
+  muted: "--muted",
+  surface: "--panel",
+  border: "--line",
+};
+let themeRev = "";
 const overlay = {
   left: new Uint8Array(PIXELS),
   right: new Uint8Array(PIXELS),
@@ -75,6 +83,37 @@ const overlayOn = {
   left: new Uint8Array(PIXELS),
   right: new Uint8Array(PIXELS),
 };
+
+function applyTheme(data) {
+  if (!data || !data.colors) return;
+  const root = document.documentElement;
+  const colors = data.colors;
+  for (const [key, cssVar] of Object.entries(THEME_CSS)) {
+    if (typeof colors[key] === "string" && colors[key]) {
+      root.style.setProperty(cssVar, colors[key]);
+    }
+  }
+  if (colors.accent) {
+    root.style.setProperty("--orange", colors.accent);
+  }
+  // Theme wallpaper / background never paints the page. --bg stays black.
+  root.style.setProperty("--bg", "#000");
+  if (data.source) root.dataset.themeSource = data.source;
+  if (data.name) root.dataset.themeName = data.name;
+  if (data.rev) themeRev = data.rev;
+}
+
+async function refreshTheme(force) {
+  try {
+    const res = await fetch("/api/theme", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!force && data.rev && data.rev === themeRev) return;
+    applyTheme(data);
+  } catch {
+    /* keep the CSS fallback palette */
+  }
+}
 
 function canvasSize(canvas) {
   const cssW = canvas.clientWidth || 126;
@@ -1222,6 +1261,9 @@ async function tick() {
       }
     }
     maybeRenderLibrary();
+    if (data.themeRev && data.themeRev !== themeRev) {
+      refreshTheme(true);
+    }
   } catch (err) {
     leftPill.textContent = "Left · offline";
     rightPill.textContent = "Right · offline";
@@ -1355,6 +1397,8 @@ setFocus("left");
 const newGroupBtn = document.getElementById("new-group");
 if (newGroupBtn) newGroupBtn.addEventListener("click", beginNewGroup);
 loadLibrary();
+refreshTheme(true);
+setInterval(() => refreshTheme(false), 3000);
 
 function loop() {
   tick().finally(() => setTimeout(loop, 50));

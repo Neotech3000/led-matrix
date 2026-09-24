@@ -93,7 +93,7 @@ Stay in the **same clone**. `git pull` is enough; do not install a second copy o
 
 1. `cd` into that `led-matrix` folder.
 2. `git pull` — fetches the latest code into this folder.
-3. **Fully quit** the old LED Matrix window. If you skip this, the old process on port **43173** keeps serving the stale UI — that is the usual reason “I pulled and nothing changed.”
+3. **Fully quit** the old LED Matrix window. If you skip this, the old process on port **43173** keeps serving the stale UI — that is the usual reason “I pulled and nothing changed.” A theme-color update also needs a fresh process so the new `/api/theme` route exists.
 4. Open it again (`led-matrix`, `python3 -m matrix_deck --gui`, or `py -m matrix_deck --gui`).
 
 On Linux you do not need to re-run `./install.sh` after a pull unless you deleted the launcher.
@@ -131,6 +131,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
   - Windows: `%APPDATA%\led-matrix\library.json`
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch, falling sand, and every other draw mode stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
 - The live preview stays in the **middle**; half the catalog is on the left, the rest on the right.
+- **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
 
 ### Games, Sketch, Marquee, Utilities
 
