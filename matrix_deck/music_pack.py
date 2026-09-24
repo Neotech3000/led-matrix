@@ -289,7 +289,9 @@ def _build():
             anim_id = f"mu-{adj}-{noun}"
             title = f"{adj.title()} {noun.title()}"
             blurb = f"{MODE_BLURB[mode]} {adj.title()} {noun} at {spec['bpm']} BPM."
-            items.append(formula(anim_id, title, blurb, _paint, kind="music", spec=spec))
+            # Mode 4 punches the whole well on every kick — a strobe at high BPM.
+            if mode != 4:
+                items.append(formula(anim_id, title, blurb, _paint, kind="music", spec=spec))
             i += 1
     return items
 

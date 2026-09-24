@@ -586,7 +586,6 @@ def _stairs(self, dt, canvas):
 
 
 SPECS = [
-    ("checker", "Checkerboard", "A scrolling chessboard of bright and dark cells.", _checker),
     ("zipper", "Zipper", "Two rails zip together as a slider races down.", _zipper),
     ("spiral", "Spiral", "A coil unwinds from the middle of the module.", _spiral),
     ("bloom", "Bloom", "Rings bloom out from the center, then start over.", _bloom),
@@ -607,7 +606,6 @@ SPECS = [
     ("sonar", "Sonar", "Pings expand from a bright core.", _sonar),
     ("barcode", "Barcode", "Bars of a code scroll like a scanner.", _barcode),
     ("fireworks", "Fireworks", "Bursts bloom and fall back as sparks.", _fireworks),
-    ("glitch", "Glitch", "A torn frame, offset rows, leftover noise.", _glitch),
     ("lattice", "Lattice", "A grid slides, one line at a time.", _lattice),
     ("weave", "Weave", "Two threads cross and recross.", _weave),
     ("stripes", "Stripes", "Bold bands roll the length of the module.", _stripes),
@@ -615,12 +613,10 @@ SPECS = [
     ("windmill", "Windmill", "Four blades spin about the middle.", _windmill),
     ("beam", "Beam", "A searchlight sweeps with a fat core.", _beam),
     ("rings", "Rings", "Nested halos chase each other out.", _rings),
-    ("burst", "Burst", "The well inhales dark, then detonates.", _burst),
     ("mist", "Mist", "Soft fog rolls without a hard edge.", _mist),
     ("eclipse", "Eclipse", "A disk slides over a brighter disk.", _eclipse),
     ("constellation", "Constellation", "A handful of stars, a few faint lines.", _constellation),
     ("foam", "Foam", "Surf piles up and slumps back.", _foam),
-    ("mosaic", "Mosaic", "Tiles flicker through a hash of greys.", _mosaic),
     ("fold", "Fold", "A crease travels, like paper being bent.", _fold),
     ("twist", "Twist", "Three ribbons braid down the well.", _twist),
     ("hop", "Hopper", "A bug hops the floor of the module.", _hop),

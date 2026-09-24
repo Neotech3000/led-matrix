@@ -1281,7 +1281,6 @@ SPECS = [
     ("maze", "Maze", "A mouse threads a carved labyrinth.", _maze),
     ("ants", "Ants", "Nine ants wander and leave short trails.", _ants),
     ("abacus", "Abacus", "Beads slide on eight wires.", _abacus),
-    ("film", "Film", "Sprocket holes and a flickering frame.", _film),
     ("countdown", "Countdown", "Nine to zero, then it starts over.", _countdown),
     ("lighthouse", "Lighthouse", "A beam sweeps the night.", _lighthouse),
     ("train", "Train", "Cars coupled, rolling past the gravel.", _train),

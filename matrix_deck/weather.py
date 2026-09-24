@@ -309,7 +309,9 @@ def _build():
             anim_id = f"wx-{adj}-{noun}"
             title = f"{adj.title()} {noun.title()}"
             blurb = f"{MODE_BLURB[mode]} {adj.title()} {noun} on the 9×34 sky."
-            items.append(formula(anim_id, title, blurb, _paint, kind="weather", spec=spec))
+            # Mode 10 is a storm cell plus a full-well lightning flash.
+            if mode != 10:
+                items.append(formula(anim_id, title, blurb, _paint, kind="weather", spec=spec))
             i += 1
     return items
 

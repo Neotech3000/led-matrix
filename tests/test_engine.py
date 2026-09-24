@@ -49,6 +49,30 @@ class EngineTests(unittest.TestCase):
         deck.set_speed(9)
         self.assertEqual(deck.speed, 2.5)
 
+    def test_unknown_library_ids_do_not_crash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                deck.set_favorite("gm-react-star", True)
+                deck.set_favorite("mu-brisk-arpeggio", True)
+                deck.set_favorite("missing-anim", True)
+                created = deck.add_group("Old mix")
+                deck.set_group_item(created["group"]["id"], "lightning", True)
+                deck.set_group_item(created["group"]["id"], "fishtank", True)
+                snap = deck.snapshot()
+                self.assertIn("gm-react-star", snap["favorites"])
+                self.assertIn("missing-anim", snap["favorites"])
+                self.assertIn("lightning", snap["groups"][0]["ids"])
+                self.assertIn("fishtank", snap["groups"][0]["ids"])
+                deck.set_animation("left", "gm-react-star")
+                self.assertEqual(deck.left_anim.id, "flappy")
+                deck.set_group_random(created["group"]["id"], True)
+                self.assertTrue(deck.random_mode)
+                self.assertEqual(deck.left_id, "fishtank")
+                self.assertEqual(deck.right_id, "fishtank")
+                create_animation("mu-brisk-arpeggio").step(0.05, Canvas())
+                create_animation("no-such-anim").step(0.05, Canvas())
+
     def test_random_mode_cycles_and_stops_on_manual_pick(self):
         deck = Deck(rng=random.Random(0))
         before = time.monotonic()
@@ -126,7 +150,23 @@ class EngineTests(unittest.TestCase):
         ids = [item["id"] for item in items]
         self.assertEqual(len(ids), len(catalog_meta()))
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(len(ids), 903)
+        self.assertEqual(len(ids), 872)
+        for removed in (
+            "lightning",
+            "static",
+            "burst",
+            "mosaic",
+            "film",
+            "checker",
+            "glitch",
+            "gm-react-star",
+            "gm-react-ember",
+            "mu-brisk-arpeggio",
+            "mu-muted-arpeggio",
+            "wx-mild-front",
+            "st-busy-quota",
+        ):
+            self.assertNotIn(removed, ids)
         self.assertTrue(all("drag" in item for item in items))
         self.assertTrue(next(item for item in items if item["id"] == "sketch")["drag"])
         for required in (
@@ -225,7 +265,7 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.3.0", html)
+        self.assertIn("?v=2.3.1", html)
         self.assertNotIn("<h1>", html)
         self.assertIn("left-marquee", html)
         self.assertIn("Type a message", html)

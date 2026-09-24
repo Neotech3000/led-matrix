@@ -242,7 +242,9 @@ def _build():
             anim_id = f"st-{adj}-{noun}"
             title = f"{adj.title()} {noun.title()}"
             blurb = f"{MODE_BLURB[mode]} {adj.title()} {noun}, simulated desk status."
-            items.append(formula(anim_id, title, blurb, _paint, kind="status", spec=spec))
+            # Mode 14 strobes the well at ~3 Hz when a fake alert trips.
+            if mode != 14:
+                items.append(formula(anim_id, title, blurb, _paint, kind="status", spec=spec))
             i += 1
     return items
 

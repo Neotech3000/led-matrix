@@ -163,7 +163,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 
 Each type is limited to **about 100** unique animations: **loop**, **game**, **sketch** (Draw), **utility**, **weather**, **music**, **puzzle**, **status**, and **ambient**. Favorites is only a filter.
 
-There are **903** animations. Click a well, then use the keyboard for games and timers.
+There are **872** animations. Click a well, then use the keyboard for games and timers. The catalog drops strobes and whole-well flashes (lightning, TV static, react-to-flash games, kick-punch music) so a well is less likely to trigger photosensitive epilepsy.
 
 ## If left and right are swapped
 

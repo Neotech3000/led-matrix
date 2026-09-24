@@ -10,7 +10,7 @@ from matrix_deck.canvas import Canvas
 from matrix_deck.formula import clamp
 from matrix_deck.games import KEYS, Game
 
-FAMILIES = ("catch", "dodge", "tap", "stack", "slide", "react", "hold", "shmup")
+FAMILIES = ("catch", "dodge", "tap", "stack", "slide", "hold", "shmup")
 SLUGS = (
     "ember", "coin", "star", "seed", "berry",
     "spark", "flake", "gift", "nugget",
@@ -21,7 +21,6 @@ FAMILY_TITLE = {
     "tap": "Tap",
     "stack": "Stack",
     "slide": "Slide",
-    "react": "React",
     "hold": "Hold",
     "shmup": "Shmup",
 }
@@ -31,7 +30,6 @@ FAMILY_BLURB = {
     "tap": "Tap the lit target before it fades. Auto until you tap.",
     "stack": "Drop the sliding bar onto the stack. Click or space.",
     "slide": "Steer a token to the goal. Arrows, tap, or WASD.",
-    "react": "Wait for the flash, then tap. Too early misses.",
     "hold": "Keep the marker inside the moving band.",
     "shmup": "A tiny shooter's well. Move and fire; auto until you play.",
 }
