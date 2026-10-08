@@ -6,7 +6,7 @@ import unittest
 from http.client import HTTPConnection
 from unittest.mock import patch
 
-from matrix_deck import HEIGHT
+from matrix_deck import HEIGHT, PIXELS
 from matrix_deck.anim import create_animation
 from matrix_deck.canvas import Canvas, line_cells
 from matrix_deck.engine import Deck
@@ -72,6 +72,70 @@ class ExtraAnimTests(unittest.TestCase):
         invaders.key("Space")
         self.assertFalse(invaders.auto)
         self.assertIsNotNone(invaders.shot)
+
+    def test_tetris_score_starts_at_zero(self):
+        tetris = create_animation("tetris")
+        self.assertEqual(tetris.score, 0)
+        self.assertEqual(tetris.info()["score"], 0)
+        self.assertGreaterEqual(tetris.py, tetris.PLAY_Y0)
+        self.assertGreater(tetris.PLAY_Y0, tetris.SCORE_H)
+
+    def test_tetris_line_clears_increase_score(self):
+        tetris = create_animation("tetris")
+        from matrix_deck import WIDTH
+
+        def fill_rows(count):
+            tetris.grid = bytearray(PIXELS)
+            for n in range(count):
+                y = HEIGHT - 1 - n
+                for x in range(WIDTH):
+                    tetris.grid[y * WIDTH + x] = 1
+
+        fill_rows(1)
+        self.assertEqual(tetris._clear_lines(), 1)
+        self.assertEqual(tetris.score, 100)
+        fill_rows(2)
+        self.assertEqual(tetris._clear_lines(), 2)
+        self.assertEqual(tetris.score, 400)
+        fill_rows(3)
+        self.assertEqual(tetris._clear_lines(), 3)
+        self.assertEqual(tetris.score, 900)
+        fill_rows(4)
+        self.assertEqual(tetris._clear_lines(), 4)
+        self.assertEqual(tetris.score, 999)
+        tetris.score = 0
+        fill_rows(4)
+        tetris._clear_lines()
+        self.assertEqual(tetris.score, 800)
+
+    def test_tetris_score_digits_use_top_rows_not_spawn(self):
+        from matrix_deck import WIDTH
+
+        tetris = create_animation("tetris")
+        tetris.acc = 0.0
+        canvas = Canvas()
+        tetris.step(0.0, canvas)
+        top = sum(canvas.pixels[: tetris.SCORE_H * WIDTH])
+        self.assertGreater(top, 0)
+        self.assertEqual(tetris.py, tetris.PLAY_Y0)
+        for dx, dy in tetris.shape:
+            self.assertGreaterEqual(tetris.py + dy, tetris.PLAY_Y0)
+            self.assertEqual(canvas.get(tetris.px + dx, tetris.py + dy), 255)
+            self.assertGreaterEqual(tetris.py + dy, tetris.SEP_ROW + 1)
+        tetris.score = 8
+        tetris._score_glow = 0.0
+        later = Canvas()
+        tetris.step(0.0, later)
+        self.assertGreater(sum(later.pixels[: tetris.SCORE_H * WIDTH]), 0)
+        # Packed 3×5 "8" sits in the rightmost three columns when score is 8.
+        self.assertGreater(later.get(7, 0), 0)
+        self.assertGreater(later.get(6, 2), 0)
+        tetris.score = 300
+        tetris.alive = False
+        over = Canvas()
+        tetris.step(0.0, over)
+        self.assertEqual(tetris.score, 300)
+        self.assertGreater(sum(over.pixels[: tetris.SCORE_H * WIDTH]), 0)
 
     def test_marquee_custom_text_skips_side_columns(self):
         anim = create_animation("marquee")

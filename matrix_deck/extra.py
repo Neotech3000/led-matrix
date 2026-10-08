@@ -679,7 +679,7 @@ class Marquee(Animation):
 class Tetris(Animation):
     id = "tetris"
     name = "Tetris"
-    description = "Arrows or WASD: left/right, up rotate, down drop."
+    description = "Arrows or WASD: left/right, up rotate, down drop. Score at the top."
     kind = "game"
     drag = True
 
@@ -693,49 +693,97 @@ class Tetris(Animation):
         ((0, 0), (1, 0), (1, 1), (2, 1)),
     )
 
+    # 3×5 digits packed three-across (no gutter) fill the 9-wide well.
+    # Rows 0–4 are the score, row 5 is a dim separator, playfield starts at 6.
+    # Display and stored score cap at 999 (rightmost three digits).
+    SCORE_H = 5
+    SEP_ROW = 5
+    PLAY_Y0 = 6
+    SCORE_CAP = 999
+    LINE_SCORES = (0, 100, 300, 500, 800)
+    SCORE_DIGITS = {
+        "0": ("###", "# #", "# #", "# #", "###"),
+        "1": (" # ", "## ", " # ", " # ", "###"),
+        "2": ("###", "  #", "###", "#  ", "###"),
+        "3": ("###", "  #", "###", "  #", "###"),
+        "4": ("# #", "# #", "###", "  #", "  #"),
+        "5": ("###", "#  ", "###", "  #", "###"),
+        "6": ("###", "#  ", "###", "# #", "###"),
+        "7": ("###", "  #", " # ", " # ", " # "),
+        "8": ("###", "# #", "###", "# #", "###"),
+        "9": ("###", "# #", "###", "  #", "###"),
+    }
+
     def __init__(self, rng: random.Random | None = None) -> None:
         self.rng = rng or random.Random()
         self.grid = bytearray(PIXELS)
         self.shape = list(self.SHAPES[0])
-        self.px, self.py = 3, 0
+        self.px, self.py = 3, self.PLAY_Y0
         self.acc = 0.0
         self.score = 0
         self.best = 0
         self.auto = True
+        self.alive = True
+        self.dead = 0.0
+        self._score_glow = 0.0
+        self._spawn()
+
+    def _restart(self) -> None:
+        self.grid = bytearray(PIXELS)
+        self.score = 0
+        self.alive = True
+        self.dead = 0.0
+        self._score_glow = 0.0
+        self.acc = 0.0
         self._spawn()
 
     def _spawn(self) -> None:
         self.shape = [tuple(p) for p in self.SHAPES[self.rng.randrange(len(self.SHAPES))]]
-        self.px, self.py = 3, 0
+        self.px, self.py = 3, self.PLAY_Y0
         if self._hits(self.px, self.py, self.shape):
-            self.grid = bytearray(PIXELS)
-            self.score = 0
+            self.alive = False
 
     def _hits(self, px: int, py: int, shape) -> bool:
         for dx, dy in shape:
             x, y = px + dx, py + dy
-            if x < 0 or x >= WIDTH or y >= HEIGHT:
+            if x < 0 or x >= WIDTH or y >= HEIGHT or y < self.PLAY_Y0:
                 return True
-            if y >= 0 and self.grid[y * WIDTH + x]:
+            if self.grid[y * WIDTH + x]:
                 return True
         return False
 
-    def _lock(self) -> None:
-        for dx, dy in self.shape:
-            x, y = self.px + dx, self.py + dy
-            if 0 <= y < HEIGHT:
-                self.grid[y * WIDTH + x] = 1
-        y = 0
+    def _award(self, points: int, glow: bool = False) -> None:
+        if points <= 0:
+            return
+        self.score = min(self.SCORE_CAP, self.score + points)
+        self.best = max(self.best, self.score)
+        if glow:
+            self._score_glow = 0.28
+
+    def _clear_lines(self) -> int:
+        cleared = 0
+        y = self.PLAY_Y0
         while y < HEIGHT:
             row = self.grid[y * WIDTH : (y + 1) * WIDTH]
             if all(row):
                 del self.grid[y * WIDTH : (y + 1) * WIDTH]
-                self.grid[0:0] = b"\x00" * WIDTH
-                self.score += 1
-                self.best = max(self.best, self.score)
+                insert = self.PLAY_Y0 * WIDTH
+                self.grid[insert:insert] = b"\x00" * WIDTH
+                cleared += 1
             else:
                 y += 1
-        self._spawn()
+        if cleared:
+            self._award(self.LINE_SCORES[min(cleared, 4)], glow=True)
+        return cleared
+
+    def _lock(self) -> None:
+        for dx, dy in self.shape:
+            x, y = self.px + dx, self.py + dy
+            if self.PLAY_Y0 <= y < HEIGHT and 0 <= x < WIDTH:
+                self.grid[y * WIDTH + x] = 1
+        self._clear_lines()
+        if self.alive:
+            self._spawn()
 
     def _rotate(self) -> None:
         rotated = [(dy, -dx) for dx, dy in self.shape]
@@ -747,6 +795,9 @@ class Tetris(Animation):
 
     def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
         self.auto = False
+        if not self.alive:
+            self._restart()
+            return
         if x < self.px:
             if not self._hits(self.px - 1, self.py, self.shape):
                 self.px -= 1
@@ -758,19 +809,50 @@ class Tetris(Animation):
 
     def key(self, code: str) -> None:
         self.auto = False
+        if not self.alive:
+            self._restart()
+            return
         if code in {"ArrowLeft", "KeyA"} and not self._hits(self.px - 1, self.py, self.shape):
             self.px -= 1
         elif code in {"ArrowRight", "KeyD"} and not self._hits(self.px + 1, self.py, self.shape):
             self.px += 1
         elif code in {"ArrowDown", "KeyS"} and not self._hits(self.px, self.py + 1, self.shape):
             self.py += 1
+            self._award(1)
         elif code in {"ArrowUp", "KeyW", "Space"}:
             self._rotate()
 
     def info(self) -> dict:
-        return {"score": self.score, "best": self.best, "auto": self.auto, "alive": True}
+        return {"score": self.score, "best": self.best, "auto": self.auto, "alive": self.alive}
+
+    def _paint_score(self, canvas: Canvas) -> None:
+        text = f"{self.score}"[-3:].rjust(3)
+        value = 255 if self._score_glow > 0 else 230
+        for i, ch in enumerate(text):
+            rows = self.SCORE_DIGITS.get(ch)
+            if not rows:
+                continue
+            ox = i * 3
+            for dy, row in enumerate(rows):
+                for dx, cell in enumerate(row):
+                    if cell != " ":
+                        canvas.blend(ox + dx, dy, value)
+        for x in range(WIDTH):
+            canvas.blend(x, self.SEP_ROW, 40)
 
     def step(self, dt: float, canvas: Canvas) -> None:
+        if self._score_glow > 0:
+            self._score_glow = max(0.0, self._score_glow - dt)
+        if not self.alive:
+            self.dead += dt
+            if self.dead > 1.6:
+                self._restart()
+            canvas.clear(0)
+            for i, v in enumerate(self.grid):
+                if v:
+                    canvas.pixels[i] = 160
+            self._paint_score(canvas)
+            return
         self.acc += dt
         speed = 0.18 if self.auto else 0.45
         if self.acc >= speed:
@@ -787,9 +869,13 @@ class Tetris(Animation):
         canvas.clear(0)
         for i, v in enumerate(self.grid):
             if v:
-                canvas.pixels[i] = 160
-        for dx, dy in self.shape:
-            canvas.blend(self.px + dx, self.py + dy, 255)
+                y = i // WIDTH
+                if y >= self.PLAY_Y0:
+                    canvas.pixels[i] = 160
+        if self.alive:
+            for dx, dy in self.shape:
+                canvas.blend(self.px + dx, self.py + dy, 255)
+        self._paint_score(canvas)
 
 
 class Invaders(Animation):

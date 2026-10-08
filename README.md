@@ -145,7 +145,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 | **Sketch** | **Drag on the well — one LED per pixel.** Shift-drag erases. C clears. |
 | **Falling sand** | Drag to pour sand. Shift-drag erases. C clears. |
 | **Breakout / Dodge** | Drag or ← →. |
-| **Tetris** | WASD or arrows. |
+| **Tetris** | WASD or arrows. Live score at the top of the well. |
 | **Invaders** | ← → to move, Space to shoot. |
 | **Dino run / Flappy** | Click or Space. |
 | **Frogger / Racetrack / Catcher** | Hop or steer with tap / ← →. |

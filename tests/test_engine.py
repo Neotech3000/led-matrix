@@ -265,7 +265,7 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.4.0", html)
+        self.assertIn("?v=2.4.1", html)
         self.assertNotIn("<h1>", html)
         self.assertIn("left-marquee", html)
         self.assertIn("Type a message", html)
