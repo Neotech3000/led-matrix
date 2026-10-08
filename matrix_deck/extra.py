@@ -693,8 +693,8 @@ class Tetris(Animation):
         ((0, 0), (1, 0), (1, 1), (2, 1)),
     )
 
-    # 3×5 digits packed three-across (no gutter) fill the 9-wide well.
-    # Rows 0–4 are the score, row 5 is a dim separator, playfield starts at 6.
+    # 3×5 digits on rows 0–4, dim separator on row 5, playfield from row 6.
+    # One or two digits get a 1-pixel gutter; three digits pack to fill 9 cols.
     # Display and stored score cap at 999 (rightmost three digits).
     SCORE_H = 5
     SEP_ROW = 5
@@ -826,13 +826,19 @@ class Tetris(Animation):
         return {"score": self.score, "best": self.best, "auto": self.auto, "alive": self.alive}
 
     def _paint_score(self, canvas: Canvas) -> None:
-        text = f"{self.score}"[-3:].rjust(3)
+        text = f"{self.score}"[-3:]
+        n = len(text)
+        if n == 1:
+            origins = (6,)
+        elif n == 2:
+            origins = (2, 6)
+        else:
+            origins = (0, 3, 6)
         value = 255 if self._score_glow > 0 else 230
-        for i, ch in enumerate(text):
+        for ch, ox in zip(text, origins):
             rows = self.SCORE_DIGITS.get(ch)
             if not rows:
                 continue
-            ox = i * 3
             for dy, row in enumerate(rows):
                 for dx, cell in enumerate(row):
                     if cell != " ":
