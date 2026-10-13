@@ -125,13 +125,19 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - Compact type chips **All** **Favorites** **Game** **Loop** **Draw** **Utility** **Weather** **Music** **Puzzle** **Status** **Ambient** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels. **Favorites** is a filter, not a catalog kind.
 - **Hearts** on each card save a global favorite. The **Favorites** chip shows only those.
 - **Groups:** click **New group**, name it (for example Desk mix), and it appears in the bubble row immediately — no restart. Each bubble has two targets: the **name** opens/filters that group (members only; an empty group still shows the full catalog). The **+** enters selection mode without opening it — the catalog stays on All/type/search so you can tap many cards (or card + / heart) to add. Banner: “Adding to Desk mix — tap cards to add. Esc or Done to exit.” Click **+** again, **Done**, or Escape to leave; click the name while adding to review the group. Each bubble has its own **Random** that cycles only that group (10–30s, both wells, skip sketch/sand). Top-bar **Random** still walks the whole catalog. Group random and catalog Random are mutually exclusive; assigning a card by hand turns that shuffle off.
-- Favorites and groups are saved in the app data folder:
+- Favorites, groups, scenes, and settings (idle dim, mirror) are saved in the app data folder:
   - Linux: `~/.local/share/led-matrix/library.json`
   - macOS: `~/Library/Application Support/led-matrix/library.json`
   - Windows: `%APPDATA%\led-matrix\library.json`
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch, falling sand, and every other draw mode stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
 - The live preview stays in the **middle**; the full catalog sits on both sides, each rail aimed at its own well.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
+
+### What's new in 2.7.0
+
+- **Scenes.** **Save scene** stores both wells plus brightness and speed under a name; the chip recalls it in one click, **↻** overwrites it with what is playing now, **×** asks Yes / No inline. A scene can carry a daily time window (for example 22:00–07:00, wrap-around is fine) and the app applies it itself on the wall clock, once per window, even with the browser closed. `/api/scenes` (GET/POST), `/api/scenes/delete`, `/api/scenes/apply`.
+- **Idle dim.** Turn on **Idle dim** in the top bar and pick the minutes. After that long with no input (clicks, keys, strokes, sliders, scene changes — frame polling does not count) both wells fade to about 8 % over one second; any input ramps them back over one second. No steps, no flashes. The brightness label shows `180 → 14` while dimmed. Persisted in `library.json` under `settings`.
+- **Mirror a well.** The **↔** button on each module flips that well horizontally before the frame goes to the module — for a module installed facing the other way. The preview flips with it and touches on the preview land where you see them. Persisted per well.
 
 ### What's new in 2.6.0
 

@@ -116,6 +116,15 @@ class DeckHandler(SimpleHTTPRequestHandler):
             data["randomGroup"] = self.deck.random_group
             self._json(200, data)
             return
+        if path == "/api/scenes":
+            self._json(200, {"ok": True, **self.deck.scenes_data()})
+            return
+        if path == "/api/idle":
+            self._json(200, {"ok": True, "idle": self.deck.idle_info()})
+            return
+        if path == "/api/mirror":
+            self._json(200, {"ok": True, "mirror": dict(self.deck.mirror)})
+            return
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
@@ -252,6 +261,56 @@ class DeckHandler(SimpleHTTPRequestHandler):
                 return
             self.deck.set_text(side, str(payload.get("text", "")))
             self._json(200, {"ok": True, "side": side, "text": self.deck.text[side]})
+            return
+        if path == "/api/scenes":
+            name = str(payload.get("name", "")).strip()
+            if not name and not str(payload.get("id", "")).strip():
+                self._json(400, {"ok": False, "error": "name required"})
+                return
+            data = self.deck.save_scene(payload)
+            if data.get("scene") is None:
+                self._json(400, {"ok": False, "error": "invalid scene"})
+                return
+            self._json(200, {"ok": True, **data})
+            return
+        if path == "/api/scenes/delete":
+            scene_id = str(payload.get("id", "")).strip()
+            if not scene_id:
+                self._json(400, {"ok": False, "error": "id required"})
+                return
+            self._json(200, {"ok": True, **self.deck.delete_scene(scene_id)})
+            return
+        if path == "/api/scenes/apply":
+            scene_id = str(payload.get("id", "")).strip()
+            if not scene_id:
+                self._json(400, {"ok": False, "error": "id required"})
+                return
+            scene = self.deck.apply_scene(scene_id)
+            if scene is None:
+                self._json(404, {"ok": False, "error": "unknown scene"})
+                return
+            self._json(200, {"ok": True, "scene": scene, **self.deck.scenes_data()})
+            return
+        if path == "/api/idle":
+            enabled = payload.get("enabled")
+            minutes = payload.get("minutes")
+            try:
+                info = self.deck.set_idle(
+                    None if enabled is None else bool(enabled),
+                    None if minutes is None else int(minutes),
+                )
+            except (TypeError, ValueError):
+                self._json(400, {"ok": False, "error": "invalid idle settings"})
+                return
+            self._json(200, {"ok": True, "idle": info})
+            return
+        if path == "/api/mirror":
+            side = str(payload.get("side", "left"))
+            if side not in ("left", "right"):
+                self._json(400, {"ok": False, "error": "side must be left or right"})
+                return
+            mirror = self.deck.set_mirror(side, bool(payload.get("on", True)))
+            self._json(200, {"ok": True, "mirror": mirror})
             return
         if path == "/api/quit":
             threading.Thread(target=self._quit, daemon=True).start()

@@ -152,6 +152,251 @@ class EngineTests(unittest.TestCase):
                 other.load_library()
                 self.assertEqual([g["name"] for g in other.groups], ["Late night", "Desk mix"])
 
+    def test_scenes_crud_apply_and_schedule(self):
+        from datetime import datetime
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                deck.set_animation("left", "clock")
+                deck.set_animation("right", "fire")
+                deck.set_brightness(90)
+                deck.set_speed(1.5)
+                saved = deck.save_scene({"name": "Evening"})
+                scene = saved["scene"]
+                self.assertEqual(scene["name"], "Evening")
+                self.assertEqual((scene["left"], scene["right"]), ("clock", "fire"))
+                self.assertEqual(scene["brightness"], 90)
+                self.assertEqual(scene["speed"], 1.5)
+                self.assertIsNone(scene["schedule"])
+                self.assertEqual(len(saved["scenes"]), 1)
+
+                night = deck.save_scene(
+                    {
+                        "name": "Night",
+                        "left": "hearts",
+                        "right": "ecg",
+                        "brightness": 30,
+                        "speed": 0.5,
+                        "schedule": {"start": "22:00", "end": "07:00"},
+                    }
+                )["scene"]
+                self.assertEqual(night["schedule"], {"start": "22:00", "end": "07:00", "days": []})
+                bad = deck.save_scene({"name": "Broken", "schedule": {"start": "25:00", "end": "07:00"}})["scene"]
+                self.assertIsNone(bad["schedule"])
+
+                deck.set_animation("left", "flappy")
+                self.assertIsNone(deck.active_scene)
+                applied = deck.apply_scene(scene["id"])
+                self.assertIsNotNone(applied)
+                self.assertEqual(deck.left_id, "clock")
+                self.assertEqual(deck.right_id, "fire")
+                self.assertEqual(deck.brightness, 90)
+                self.assertEqual(deck.speed, 1.5)
+                self.assertEqual(deck.active_scene, scene["id"])
+                self.assertFalse(deck.random_mode)
+                self.assertIsNone(deck.apply_scene("s-missing"))
+
+                # Schedule: 23:30 falls inside the 22:00-07:00 wrap-around window; 12:00 does not.
+                deck.run_schedules(datetime(2026, 10, 13, 23, 30))
+                self.assertEqual(deck.active_scene, night["id"])
+                self.assertEqual((deck.left_id, deck.right_id), ("hearts", "ecg"))
+                self.assertEqual(deck.brightness, 30)
+                deck.set_animation("left", "flappy")
+                deck.run_schedules(datetime(2026, 10, 13, 23, 45))
+                self.assertEqual(deck.left_id, "flappy", "a window already applied once does not re-apply")
+                deck.run_schedules(datetime(2026, 10, 14, 12, 0))
+                self.assertEqual(deck.left_id, "flappy")
+                deck.run_schedules(datetime(2026, 10, 14, 22, 5))
+                self.assertEqual(deck.left_id, "hearts", "the next evening applies it again")
+
+                # Rename / update by id keeps the recorded wells.
+                updated = deck.save_scene({"id": scene["id"], "name": "Evening desk"})["scene"]
+                self.assertEqual(updated["name"], "Evening desk")
+                self.assertEqual((updated["left"], updated["right"]), ("clock", "fire"))
+
+                path = Path(tmp) / ".local/share/led-matrix/library.json"
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual([s["name"] for s in raw["scenes"]], ["Evening desk", "Night", "Broken"])
+                other = Deck()
+                other.load_library()
+                self.assertEqual(len(other.scenes), 3)
+
+                # Replacing favorites/groups through the library API keeps scenes.
+                deck.replace_library({"favorites": ["fire"], "groups": []})
+                self.assertEqual(len(deck.scenes), 3)
+                deck.delete_scene(night["id"])
+                self.assertEqual([s["name"] for s in deck.scenes_data()["scenes"]], ["Evening desk", "Broken"])
+
+    def test_scene_endpoints(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                httpd, base = _serve(deck)
+                try:
+                    status, data = _post(f"{base}/api/scenes", {"name": ""})
+                    self.assertEqual(status, 400)
+                    status, data = _post(f"{base}/api/scenes", {"name": "Desk", "schedule": {"start": "09:00", "end": "17:00"}})
+                    self.assertEqual(status, 200)
+                    scene_id = data["scene"]["id"]
+                    self.assertEqual(data["scene"]["schedule"]["start"], "09:00")
+                    status, raw = _get(f"{base}/api/scenes")
+                    listed = json.loads(raw)
+                    self.assertEqual([s["id"] for s in listed["scenes"]], [scene_id])
+                    deck.set_animation("left", "fire")
+                    status, data = _post(f"{base}/api/scenes/apply", {"id": scene_id})
+                    self.assertEqual(status, 200)
+                    self.assertEqual(deck.left_id, "flappy")
+                    self.assertEqual(data["activeScene"], scene_id)
+                    status, data = _post(f"{base}/api/scenes/apply", {"id": "nope"})
+                    self.assertEqual(status, 404)
+                    status, data = _post(f"{base}/api/scenes/delete", {"id": scene_id})
+                    self.assertEqual(status, 200)
+                    self.assertEqual(data["scenes"], [])
+                    status, raw = _get(f"{base}/api/frame")
+                    frame = json.loads(raw)
+                    self.assertEqual(frame["scenes"], [])
+                    self.assertIn("idle", frame)
+                    self.assertIn("mirror", frame)
+                finally:
+                    httpd.shutdown()
+                    httpd.server_close()
+
+    def test_idle_dimming_ramps_both_ways(self):
+        from matrix_deck.engine import IDLE_DIM_FRACTION, RAMP_SECONDS
+
+        class FakeHw:
+            path = "/dev/fake"
+
+            def __init__(self):
+                self.levels = []
+
+            def set_brightness(self, value):
+                self.levels.append(int(value))
+
+            def draw(self, pixels):
+                pass
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                hw = FakeHw()
+                deck.left_hw = hw
+                deck.set_brightness(200)
+                self.assertEqual(hw.levels[-1], 200)
+                info = deck.set_idle(True, 1)
+                self.assertTrue(info["enabled"])
+                self.assertEqual(info["minutes"], 1)
+                now = time.monotonic()
+                with deck._lock:
+                    deck._update_idle(now, 0.05)
+                self.assertFalse(deck.idle_dimmed)
+                self.assertEqual(hw.levels[-1], 200)
+
+                # A minute of silence: dimming starts and ramps rather than stepping.
+                quiet = now + 61
+                with deck._lock:
+                    deck._update_idle(quiet, 0.05)
+                self.assertTrue(deck.idle_dimmed)
+                levels = []
+                t = quiet
+                for _ in range(40):
+                    t += 0.05
+                    with deck._lock:
+                        levels.append(deck._update_idle(t, 0.05))
+                target = int(round(200 * IDLE_DIM_FRACTION))
+                self.assertEqual(levels[-1], target)
+                self.assertGreater(levels[0], target + 100, "first tick is a small step, not a jump")
+                self.assertTrue(all(a >= b for a, b in zip(levels, levels[1:])), "monotonic ramp down")
+                self.assertGreaterEqual(len({v for v in levels}), 10)
+                self.assertEqual(hw.levels[-1], target)
+                self.assertEqual(deck.idle_info()["effective"], target)
+                self.assertTrue(deck.snapshot()["idle"]["dimmed"])
+
+                # Any input wakes it; brightness ramps back up over ~RAMP_SECONDS.
+                deck.key("left", "Space")
+                self.assertFalse(deck.idle_dimmed)
+                deck._last_activity = t  # the test clock runs ahead of the wall clock
+                up = []
+                for _ in range(int(RAMP_SECONDS / 0.05) + 5):
+                    t += 0.05
+                    with deck._lock:
+                        up.append(deck._update_idle(t, 0.05))
+                self.assertEqual(up[-1], 200)
+                self.assertLess(up[0], 100, "wake also starts with a small step")
+                self.assertTrue(all(a <= b for a, b in zip(up, up[1:])), "monotonic ramp up")
+
+                # Settings persist and the toggle turns it off.
+                raw = json.loads((Path(tmp) / ".local/share/led-matrix/library.json").read_text(encoding="utf-8"))
+                self.assertEqual(raw["settings"]["idleMinutes"], 1)
+                self.assertTrue(raw["settings"]["idleEnabled"])
+                other = Deck()
+                other.load_library()
+                self.assertTrue(other.idle_enabled)
+                self.assertEqual(other.idle_minutes, 1)
+                deck.set_idle(False, None)
+                with deck._lock:
+                    deck._update_idle(t + 600, 0.05)
+                self.assertFalse(deck.idle_dimmed)
+                self.assertEqual(deck.set_idle(None, 9999)["minutes"], 240)
+                self.assertEqual(deck.set_idle(None, 0)["minutes"], 1)
+
+    def test_mirror_flips_frame_and_touch_coordinates(self):
+        from matrix_deck.engine import flip_horizontal
+
+        row = list(range(9))
+        flipped = flip_horizontal(bytes(row * 34))
+        self.assertEqual(list(flipped[:9]), list(reversed(row)))
+        self.assertEqual(list(flipped[9 * 33 : 9 * 34]), list(reversed(row)))
+        self.assertEqual(flip_horizontal(flip_horizontal(bytes(row * 34))), bytearray(row * 34))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                deck.set_animation("left", "sketch")
+                deck.click("left", 0, 5)
+                deck.left_anim.step(0.05, deck.left_canvas)
+                self.assertEqual(deck.left_canvas.get(0, 5), 255)
+                self.assertEqual(deck.left_canvas.get(8, 5), 0)
+                plain = deck.snapshot()["left"]
+                self.assertEqual(plain[5 * 9 + 0], 255)
+                mirror = deck.set_mirror("left", True)
+                self.assertEqual(mirror, {"left": True, "right": False})
+                snap = deck.snapshot()
+                self.assertEqual(snap["left"][5 * 9 + 8], 255)
+                self.assertEqual(snap["left"][5 * 9 + 0], 0)
+                self.assertEqual(snap["mirror"], {"left": True, "right": False})
+                self.assertEqual(list(deck._frame("left")), snap["left"])
+                # Touching the preview at x=8 (where the lit LED now shows) hits canvas x=0.
+                deck.click("left", 8, 5, erase=True)
+                deck.left_anim.step(0.05, deck.left_canvas)
+                self.assertEqual(deck.left_canvas.get(0, 5), 0)
+                deck.stroke("left", [[8, 10], [8, 12]])
+                deck.left_anim.step(0.05, deck.left_canvas)
+                self.assertEqual(deck.left_canvas.get(0, 10), 255)
+                self.assertEqual(deck.left_canvas.get(0, 12), 255)
+                self.assertEqual(deck.left_canvas.get(8, 10), 0)
+                raw = json.loads((Path(tmp) / ".local/share/led-matrix/library.json").read_text(encoding="utf-8"))
+                self.assertEqual(raw["settings"]["mirror"], {"left": True, "right": False})
+                other = Deck()
+                other.load_library()
+                self.assertTrue(other.mirror["left"])
+                httpd, base = _serve(deck)
+                try:
+                    status, data = _post(f"{base}/api/mirror", {"side": "right", "on": True})
+                    self.assertEqual(status, 200)
+                    self.assertEqual(data["mirror"], {"left": True, "right": True})
+                    status, data = _post(f"{base}/api/mirror", {"side": "up", "on": True})
+                    self.assertEqual(status, 400)
+                    status, data = _post(f"{base}/api/idle", {"enabled": True, "minutes": 3})
+                    self.assertEqual(status, 200)
+                    self.assertEqual(data["idle"]["minutes"], 3)
+                    status, data = _post(f"{base}/api/idle", {"minutes": "lots"})
+                    self.assertEqual(status, 400)
+                finally:
+                    httpd.shutdown()
+                    httpd.server_close()
+
     def test_can_switch_animations(self):
         deck = Deck(fps=20)
         deck.set_animation("left", "fire")
@@ -381,9 +626,17 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.6.0", html)
+        self.assertIn("?v=2.7.0", html)
         self.assertNotIn("?v=2.4.1", html)
         self.assertNotIn("?v=2.5.0", html)
+        self.assertNotIn("?v=2.6.0", html)
+        # 2.7.0 UI: scenes row, idle dim controls, per-well mirror buttons.
+        self.assertIn('id="scenes"', html)
+        self.assertIn('id="new-scene"', html)
+        self.assertIn('id="idle-btn"', html)
+        self.assertIn('id="idle-minutes"', html)
+        self.assertIn('id="left-mirror"', html)
+        self.assertIn('id="right-mirror"', html)
         # 2.6.0 UI: drop overlays on both bezels; rails are target wells.
         self.assertIn('id="left-drop"', html)
         self.assertIn('id="right-drop"', html)
@@ -533,7 +786,23 @@ class EngineTests(unittest.TestCase):
         self.assertIn('postJson("/api/library"', js)
         self.assertIn("setRail(rails.right, items,", js)
         self.assertNotIn("items.slice(0, mid)", js)
+        # 2.7.0: scenes, idle dimming, mirror.
+        self.assertIn("/api/scenes", js)
+        self.assertIn("/api/scenes/apply", js)
+        self.assertIn("/api/scenes/delete", js)
+        self.assertIn("/api/idle", js)
+        self.assertIn("/api/mirror", js)
+        self.assertIn("function renderScenes(", js)
+        self.assertIn("function beginNewScene(", js)
+        self.assertIn("function applyIdle(", js)
+        self.assertIn("function applyMirror(", js)
+        self.assertIn("Dimmed · any input wakes", js)
         css = (WEB_ROOT / "style.css").read_text()
+        self.assertIn(".scene-chip", css)
+        self.assertIn(".scene-composer", css)
+        self.assertIn(".idle-btn", css)
+        self.assertIn(".mirror-btn", css)
+        self.assertIn("opacity 1000ms", css)
         self.assertIn("--card-h", css)
         self.assertIn(".library.virtual", css)
         self.assertIn(".drop-overlay", css)

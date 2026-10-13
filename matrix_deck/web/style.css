@@ -44,6 +44,12 @@ button.card-add:focus-visible,
 .group-confirm:focus-visible,
 .selection-done:focus-visible,
 .hint-dismiss:focus-visible,
+.idle-btn:focus-visible,
+.mirror-btn:focus-visible,
+.scene-apply:focus-visible,
+.scene-update:focus-visible,
+.scene-new:focus-visible,
+.group-rename:focus-visible,
 .sheet-close:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
@@ -249,6 +255,48 @@ button.card-add,
   cursor: pointer;
 }
 .help-btn:hover { border-color: var(--accent-55); color: var(--orange); }
+.idle-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+.idle-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.idle-btn:hover { border-color: var(--accent-55); color: var(--ink); }
+.idle-btn.on {
+  border-color: var(--accent-75);
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+.idle-btn.dimmed { color: var(--orange); }
+.idle-minutes-label { white-space: nowrap; }
+.idle-minutes {
+  appearance: textfield;
+  -moz-appearance: textfield;
+  width: 3.4em;
+  border: 1px solid var(--line);
+  background: var(--well);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 5px 6px;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: center;
+}
+.idle-minutes:focus { outline: none; border-color: var(--orange); }
+body.dimmed .bezel { opacity: 0.82; transition: opacity 1000ms ease; }
 .random-btn {
   appearance: none;
   border: 1px solid var(--line);
@@ -348,6 +396,27 @@ button.card-add,
   pointer-events: none;
 }
 .module.focused .keys-hint { opacity: 1; }
+.module-tools { display: inline-flex; align-items: center; gap: 6px; }
+.mirror-btn {
+  appearance: none;
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.mirror-btn:hover { border-color: var(--accent-55); color: var(--ink); }
+.mirror-btn.on {
+  border-color: var(--accent-75);
+  color: var(--orange);
+  background: var(--accent-soft);
+}
 
 .drop-overlay {
   position: absolute;
@@ -388,7 +457,7 @@ body.dragging-card .module.drop-hover .bezel { border-color: var(--accent); }
   justify-content: center;
 }
 .bezel:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
-.bezel { transition: border-color 300ms ease, box-shadow 300ms ease; }
+.bezel { transition: border-color 300ms ease, box-shadow 300ms ease, opacity 1000ms ease; }
 .module.focused .bezel {
   border-color: var(--accent-75);
   box-shadow:
@@ -851,6 +920,148 @@ body.selecting .card.in-group {
   margin: 0;
   color: var(--ink);
   font-size: 0.8rem;
+}
+.scenes {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.scene-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.scene-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-right: 2px;
+}
+.scene-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 3px 6px 3px 4px;
+}
+.scene-chip.active {
+  border-color: var(--accent-75);
+  background: var(--accent-soft);
+}
+.scene-chip.confirming {
+  border-color: var(--accent-75);
+  background: var(--accent-soft);
+  padding: 4px 6px 4px 10px;
+}
+.scene-apply {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+.scene-apply:hover { color: var(--orange); }
+.scene-when {
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--orange);
+  border: 1px solid var(--accent-45);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-variant-numeric: tabular-nums;
+}
+.scene-update {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.scene-update:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+.scene-new {
+  appearance: none;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.scene-new:hover { border-color: var(--accent-55); }
+.scene-composer {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  border: 1px solid var(--accent-45);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 6px 8px;
+}
+.scene-composer input[type="text"] {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--well);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 0.82rem;
+  width: 140px;
+}
+.scene-composer input:focus { outline: none; border-color: var(--orange); }
+.scene-schedule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+.scene-schedule input[type="checkbox"] { accent-color: var(--orange); margin: 0; }
+.scene-schedule input[type="time"] {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--well);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 0.76rem;
+  color-scheme: dark;
+}
+.scene-schedule input[type="time"]:disabled { opacity: 0.45; }
+.scene-composer button {
+  appearance: none;
+  border: 1px solid var(--accent-55);
+  background: var(--accent-soft);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+.scene-composer button.scene-cancel {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--muted);
 }
 .add-more {
   appearance: none;

@@ -117,6 +117,18 @@ const leftText = document.getElementById("left-text");
 const rightText = document.getElementById("right-text");
 const leftMarquee = document.getElementById("left-marquee");
 const rightMarquee = document.getElementById("right-marquee");
+const scenesEl = document.getElementById("scenes");
+const idleBtn = document.getElementById("idle-btn");
+const idleMinutesEl = document.getElementById("idle-minutes");
+const mirrorBtns = { left: document.getElementById("left-mirror"), right: document.getElementById("right-mirror") };
+
+let scenes = [];
+let activeScene = null;
+let scenesStatus = "loading";
+let confirmDeleteScene = "";
+let lastSceneUiKey = "";
+let mirrorState = { left: false, right: false };
+let idleState = { enabled: false, minutes: 10, dimmed: false, effective: 180 };
 const narrowQuery = window.matchMedia("(max-width: 980px)");
 
 let catalog = [];
@@ -1560,6 +1572,297 @@ async function moveGroup(movedId, targetId, before) {
   await saveLibrary(`Moved ${moved.name}`);
 }
 
+function applyScenes(data) {
+  if (!data || typeof data !== "object") return;
+  if (Array.isArray(data.scenes)) {
+    scenes = data.scenes.map((scene) => ({
+      id: scene.id,
+      name: scene.name,
+      left: scene.left,
+      right: scene.right,
+      brightness: scene.brightness,
+      speed: scene.speed,
+      schedule: scene.schedule ? { start: scene.schedule.start, end: scene.schedule.end, days: scene.schedule.days || [] } : null,
+    }));
+    scenesStatus = "ready";
+  }
+  if ("activeScene" in data) activeScene = data.activeScene || null;
+  if (confirmDeleteScene && !scenes.some((scene) => scene.id === confirmDeleteScene)) confirmDeleteScene = "";
+  maybeRenderScenes();
+}
+
+function sceneSummary(scene) {
+  const parts = [`${animName(scene.left)} / ${animName(scene.right)}`, `${scene.brightness}`, `${Number(scene.speed).toFixed(2).replace(/0$/, "")}×`];
+  if (scene.schedule) parts.push(`${scene.schedule.start}–${scene.schedule.end} daily`);
+  return parts.join(" · ");
+}
+
+function maybeRenderScenes(force = false) {
+  if (!scenesEl) return;
+  if (!force && scenesEl.querySelector(".scene-composer")) return;
+  const key = `${scenesStatus}|${activeScene || ""}|${confirmDeleteScene}|${scenes
+    .map((scene) => `${scene.id}:${scene.name}:${scene.left}:${scene.right}:${scene.brightness}:${scene.speed}:${scene.schedule ? scene.schedule.start + scene.schedule.end : ""}`)
+    .join(",")}|${catalog.length}`;
+  if (!force && key === lastSceneUiKey) return;
+  lastSceneUiKey = key;
+  renderScenes();
+}
+
+function renderScenes() {
+  scenesEl.innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "scene-row";
+  row.id = "scene-row";
+  const label = document.createElement("span");
+  label.className = "scene-label";
+  label.textContent = "Scenes";
+  row.appendChild(label);
+
+  if (scenesStatus === "loading") {
+    const status = document.createElement("p");
+    status.className = "groups-status";
+    status.textContent = "Loading scenes…";
+    row.appendChild(status);
+  } else if (!scenes.length) {
+    const status = document.createElement("p");
+    status.className = "groups-status";
+    status.textContent = "No scenes yet — save the current desk to recall it later.";
+    row.appendChild(status);
+  }
+
+  for (const scene of scenes) {
+    const chip = document.createElement("div");
+    chip.className = activeScene === scene.id ? "scene-chip active" : "scene-chip";
+    chip.dataset.sceneId = scene.id;
+    if (confirmDeleteScene === scene.id) {
+      chip.classList.add("confirming");
+      const prompt = document.createElement("span");
+      prompt.className = "group-confirm-text";
+      prompt.textContent = `Delete ${scene.name}?`;
+      const yes = document.createElement("button");
+      yes.type = "button";
+      yes.className = "group-confirm yes";
+      yes.textContent = "Yes";
+      yes.setAttribute("aria-label", `Yes, delete scene ${scene.name}`);
+      yes.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        confirmDeleteScene = "";
+        const data = await postJson("/api/scenes/delete", { id: scene.id });
+        if (data) {
+          applyScenes(data);
+          toast(`Deleted scene ${scene.name}`);
+        }
+        lastSceneUiKey = "";
+        maybeRenderScenes(true);
+      });
+      const no = document.createElement("button");
+      no.type = "button";
+      no.className = "group-confirm no";
+      no.textContent = "No";
+      no.setAttribute("aria-label", `Keep scene ${scene.name}`);
+      no.addEventListener("click", (event) => {
+        event.stopPropagation();
+        confirmDeleteScene = "";
+        lastSceneUiKey = "";
+        maybeRenderScenes(true);
+      });
+      chip.append(prompt, yes, no);
+      row.appendChild(chip);
+      queueMicrotask(() => no.focus());
+      continue;
+    }
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "scene-apply";
+    apply.textContent = scene.name;
+    apply.title = `Recall ${scene.name}: ${sceneSummary(scene)}`;
+    apply.setAttribute("aria-pressed", activeScene === scene.id ? "true" : "false");
+    apply.addEventListener("click", async () => {
+      const data = await postJson("/api/scenes/apply", { id: scene.id });
+      if (data) {
+        applyScenes(data);
+        for (const side of ["left", "right"]) {
+          pendingAnim[side] = scene[side];
+          state[`${side}_anim`] = scene[side];
+          clearOverlay(side);
+        }
+        lastLibKey = "";
+        maybeRenderLibrary();
+        showMarqueeFields();
+        toast(`Scene ${scene.name}`);
+      }
+    });
+    chip.appendChild(apply);
+    if (scene.schedule) {
+      const when = document.createElement("span");
+      when.className = "scene-when";
+      when.textContent = `${scene.schedule.start}–${scene.schedule.end}`;
+      when.title = `Applies itself every day from ${scene.schedule.start} to ${scene.schedule.end}`;
+      chip.appendChild(when);
+    }
+    const update = document.createElement("button");
+    update.type = "button";
+    update.className = "scene-update";
+    update.textContent = "↻";
+    update.title = `Overwrite ${scene.name} with what is playing now`;
+    update.setAttribute("aria-label", update.title);
+    update.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const data = await postJson("/api/scenes", {
+        id: scene.id,
+        left: state.left_anim,
+        right: state.right_anim,
+        brightness: Number(brightnessEl.value),
+        speed: Number(speedEl.value) / 100,
+      });
+      if (data) {
+        applyScenes(data);
+        toast(`Updated ${scene.name}`);
+      }
+    });
+    chip.appendChild(update);
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "group-delete";
+    del.textContent = "×";
+    del.title = `Delete scene ${scene.name}`;
+    del.setAttribute("aria-label", del.title);
+    del.addEventListener("click", (event) => {
+      event.stopPropagation();
+      confirmDeleteScene = scene.id;
+      lastSceneUiKey = "";
+      maybeRenderScenes(true);
+    });
+    chip.appendChild(del);
+    row.appendChild(chip);
+  }
+
+  const newBtn = document.createElement("button");
+  newBtn.type = "button";
+  newBtn.className = "scene-new";
+  newBtn.id = "new-scene";
+  newBtn.textContent = "Save scene";
+  newBtn.title = "Save both wells plus brightness and speed as a named scene";
+  newBtn.addEventListener("click", beginNewScene);
+  row.appendChild(newBtn);
+  scenesEl.appendChild(row);
+}
+
+function beginNewScene() {
+  const row = scenesEl && scenesEl.querySelector(".scene-row");
+  if (!row || row.querySelector(".scene-composer")) return;
+  const form = document.createElement("form");
+  form.className = "scene-composer";
+  const name = document.createElement("input");
+  name.type = "text";
+  name.maxLength = 40;
+  name.placeholder = "Evening";
+  name.setAttribute("aria-label", "Scene name");
+  const scheduleWrap = document.createElement("label");
+  scheduleWrap.className = "scene-schedule";
+  const scheduleOn = document.createElement("input");
+  scheduleOn.type = "checkbox";
+  scheduleOn.setAttribute("aria-label", "Apply this scene automatically in a daily time window");
+  const scheduleText = document.createElement("span");
+  scheduleText.textContent = "daily from";
+  const start = document.createElement("input");
+  start.type = "time";
+  start.value = "22:00";
+  start.disabled = true;
+  start.setAttribute("aria-label", "Window start");
+  const to = document.createElement("span");
+  to.textContent = "to";
+  const end = document.createElement("input");
+  end.type = "time";
+  end.value = "07:00";
+  end.disabled = true;
+  end.setAttribute("aria-label", "Window end");
+  scheduleOn.addEventListener("change", () => {
+    start.disabled = end.disabled = !scheduleOn.checked;
+  });
+  scheduleWrap.append(scheduleOn, scheduleText, start, to, end);
+  const save = document.createElement("button");
+  save.type = "submit";
+  save.textContent = "Save";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "scene-cancel";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => {
+    form.remove();
+    lastSceneUiKey = "";
+    maybeRenderScenes(true);
+  });
+  form.append(name, scheduleWrap, save, cancel);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const label = name.value.trim();
+    if (!label) {
+      name.focus();
+      return;
+    }
+    const payload = {
+      name: label,
+      left: state.left_anim,
+      right: state.right_anim,
+      brightness: Number(brightnessEl.value),
+      speed: Number(speedEl.value) / 100,
+      schedule: scheduleOn.checked && start.value && end.value ? { start: start.value, end: end.value } : null,
+    };
+    const data = await postJson("/api/scenes", payload);
+    form.remove();
+    if (data) {
+      applyScenes(data);
+      toast(payload.schedule ? `Saved ${label} · ${payload.schedule.start}–${payload.schedule.end} daily` : `Saved scene ${label}`);
+    }
+    lastSceneUiKey = "";
+    maybeRenderScenes(true);
+  });
+  name.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      cancel.click();
+    }
+  });
+  const newBtn = row.querySelector(".scene-new");
+  if (newBtn) row.insertBefore(form, newBtn);
+  else row.appendChild(form);
+  name.focus();
+}
+
+function applyIdle(info) {
+  if (!info || typeof info !== "object") return;
+  idleState = {
+    enabled: !!info.enabled,
+    minutes: Number(info.minutes) || idleState.minutes,
+    dimmed: !!info.dimmed,
+    effective: Number(info.effective),
+  };
+  if (idleBtn) {
+    idleBtn.classList.toggle("on", idleState.enabled);
+    idleBtn.classList.toggle("dimmed", idleState.dimmed);
+    idleBtn.setAttribute("aria-pressed", idleState.enabled ? "true" : "false");
+    const text = idleState.dimmed ? "Dimmed · any input wakes" : idleState.enabled ? "Idle dim · on" : "Idle dim";
+    if (idleBtn.textContent !== text) idleBtn.textContent = text;
+  }
+  if (idleMinutesEl && document.activeElement !== idleMinutesEl) {
+    idleMinutesEl.value = String(idleState.minutes);
+  }
+  document.body.classList.toggle("dimmed", idleState.dimmed);
+}
+
+function applyMirror(mirror) {
+  if (!mirror || typeof mirror !== "object") return;
+  mirrorState = { left: !!mirror.left, right: !!mirror.right };
+  for (const side of ["left", "right"]) {
+    const btn = mirrorBtns[side];
+    if (!btn) continue;
+    btn.classList.toggle("on", mirrorState[side]);
+    btn.setAttribute("aria-pressed", mirrorState[side] ? "true" : "false");
+  }
+}
+
 function beginNewGroup() {
   const row = document.getElementById("group-row") || (groupsEl && groupsEl.querySelector(".group-row"));
   if (!row || row.querySelector(".group-composer")) return;
@@ -1850,7 +2153,7 @@ function continueDraw(event) {
 
 function onDocPointerDown(event) {
   if (helpOpen()) return;
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .selection-done, .selection-bar, .filing-banner, input, textarea, button, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select, .first-run, .toasts, .sheet-scrim")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .selection-done, .selection-bar, .filing-banner, input, textarea, button, label, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select, .scenes, .scene-chip, .scene-composer, .idle-ctl, .module-tools, .first-run, .toasts, .sheet-scrim")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -1904,7 +2207,11 @@ function formatSpeed(value) {
 }
 
 function updateMeterLabels() {
-  if (brightnessValue) brightnessValue.textContent = formatBrightness(brightnessEl.value);
+  if (brightnessValue) {
+    brightnessValue.textContent = idleState.dimmed
+      ? `${formatBrightness(brightnessEl.value)} → ${formatBrightness(idleState.effective)}`
+      : formatBrightness(brightnessEl.value);
+  }
   if (speedValue) speedValue.textContent = formatSpeed(speedEl.value);
 }
 
@@ -1967,6 +2274,9 @@ async function tick() {
       mergeGroups(data.groups);
     }
     if ("randomGroup" in data) randomGroup = data.randomGroup || null;
+    if (Array.isArray(data.scenes)) applyScenes(data);
+    applyIdle(data.idle);
+    applyMirror(data.mirror);
     if (randomBtn) {
       const globalOn = !!data.random && !data.randomGroup;
       randomBtn.classList.toggle("on", globalOn);
@@ -2026,7 +2336,7 @@ function renderHelp() {
 
   rows.push('<section class="help-section"><h3>How it works</h3>');
   rows.push(
-    "<p>Click a card to play it on the well you last clicked; the <strong>L</strong>/<strong>R</strong> badges send it to a specific side. Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once. Double-click a slider to reset it.</p>"
+    "<p>Both rails show the whole library: the left rail plays on the left well, the right rail on the right. Drag a card onto a well, or use the <strong>L</strong>/<strong>R</strong> badges. Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once. <strong>Save scene</strong> keeps both wells plus brightness and speed, with an optional daily window. <strong>Idle dim</strong> fades both wells after a quiet spell and any input brings them back. <strong>↔</strong> mirrors a well for a module that faces the other way. Double-click a slider to reset it.</p>"
   );
   rows.push("</section>");
 
@@ -2144,6 +2454,13 @@ window.addEventListener("keydown", (event) => {
     maybeRenderGroups();
     return;
   }
+  if (event.code === "Escape" && confirmDeleteScene) {
+    event.preventDefault();
+    confirmDeleteScene = "";
+    lastSceneUiKey = "";
+    maybeRenderScenes(true);
+    return;
+  }
   if (!event.ctrlKey && !event.metaKey && !event.altKey) {
     if (event.key === "/") {
       event.preventDefault();
@@ -2210,6 +2527,48 @@ randomBtn.addEventListener("click", () => {
   toast(on ? "Shuffling the whole catalog" : "Shuffle off");
   maybeRenderGroups();
 });
+
+if (idleBtn) {
+  idleBtn.addEventListener("click", async () => {
+    const enabled = !idleState.enabled;
+    const data = await postJson("/api/idle", { enabled, minutes: Number(idleMinutesEl ? idleMinutesEl.value : idleState.minutes) || idleState.minutes });
+    if (data && data.idle) {
+      applyIdle(data.idle);
+      toast(enabled ? `Idle dim after ${data.idle.minutes} min` : "Idle dim off");
+    }
+  });
+}
+if (idleMinutesEl) {
+  const commit = async () => {
+    const minutes = Math.max(1, Math.min(240, Math.round(Number(idleMinutesEl.value) || idleState.minutes)));
+    idleMinutesEl.value = String(minutes);
+    if (minutes === idleState.minutes) return;
+    const data = await postJson("/api/idle", { minutes });
+    if (data && data.idle) {
+      applyIdle(data.idle);
+      toast(`Idle dim after ${data.idle.minutes} min`);
+    }
+  };
+  idleMinutesEl.addEventListener("change", commit);
+  idleMinutesEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      idleMinutesEl.blur();
+    }
+  });
+}
+for (const side of ["left", "right"]) {
+  const btn = mirrorBtns[side];
+  if (!btn) continue;
+  btn.addEventListener("click", async () => {
+    const on = !mirrorState[side];
+    const data = await postJson("/api/mirror", { side, on });
+    if (data && data.mirror) {
+      applyMirror(data.mirror);
+      toast(on ? `${sideLabel(side)} well mirrored` : `${sideLabel(side)} well normal`);
+    }
+  });
+}
 
 if (helpBtn) helpBtn.addEventListener("click", toggleHelp);
 if (helpClose) helpClose.addEventListener("click", closeHelp);
@@ -2314,6 +2673,8 @@ updateMeterLabels();
 showHintIfFirstRun();
 const newGroupBtn = document.getElementById("new-group");
 if (newGroupBtn) newGroupBtn.addEventListener("click", beginNewGroup);
+const newSceneBtn = document.getElementById("new-scene");
+if (newSceneBtn) newSceneBtn.addEventListener("click", beginNewScene);
 loadCatalog("");
 loadLibrary();
 refreshTheme(true);

@@ -18,12 +18,104 @@ def library_path() -> Path:
     return data_dir() / "library.json"
 
 
+DEFAULT_IDLE_MINUTES = 10
+MIN_IDLE_MINUTES = 1
+MAX_IDLE_MINUTES = 240
+
+
+def default_settings() -> dict:
+    return {
+        "idleEnabled": False,
+        "idleMinutes": DEFAULT_IDLE_MINUTES,
+        "mirror": {"left": False, "right": False},
+    }
+
+
 def empty_library() -> dict:
-    return {"favorites": [], "groups": []}
+    return {"favorites": [], "groups": [], "scenes": [], "settings": default_settings()}
 
 
 def new_group_id() -> str:
     return "g-" + uuid4().hex[:10]
+
+
+def new_scene_id() -> str:
+    return "s-" + uuid4().hex[:10]
+
+
+def _clean_time(value) -> str | None:
+    """Accept 'HH:MM' (24h); return normalized string or None."""
+    text = str(value or "").strip()
+    if len(text) != 5 or text[2] != ":":
+        return None
+    try:
+        hour = int(text[:2])
+        minute = int(text[3:])
+    except ValueError:
+        return None
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+    return f"{hour:02d}:{minute:02d}"
+
+
+def normalize_schedule(raw) -> dict | None:
+    if not isinstance(raw, dict):
+        return None
+    start = _clean_time(raw.get("start"))
+    end = _clean_time(raw.get("end"))
+    if start is None or end is None or start == end:
+        return None
+    days: list[int] = []
+    for item in raw.get("days") or []:
+        try:
+            day = int(item)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= day <= 6 and day not in days:
+            days.append(day)
+    return {"start": start, "end": end, "days": sorted(days)}
+
+
+def normalize_scene(raw) -> dict | None:
+    if not isinstance(raw, dict):
+        return None
+    scene_id = _clean_id(raw.get("id")) or new_scene_id()
+    name = _clean_name(raw.get("name")) or "Scene"
+    left = _clean_id(raw.get("left")) or "flappy"
+    right = _clean_id(raw.get("right")) or "fishtank"
+    try:
+        brightness = max(0, min(255, int(raw.get("brightness", 180))))
+    except (TypeError, ValueError):
+        brightness = 180
+    try:
+        speed = max(0.25, min(2.5, float(raw.get("speed", 1.0))))
+    except (TypeError, ValueError):
+        speed = 1.0
+    return {
+        "id": scene_id,
+        "name": name,
+        "left": left,
+        "right": right,
+        "brightness": brightness,
+        "speed": round(speed, 3),
+        "schedule": normalize_schedule(raw.get("schedule")),
+    }
+
+
+def normalize_settings(raw) -> dict:
+    out = default_settings()
+    if not isinstance(raw, dict):
+        return out
+    out["idleEnabled"] = bool(raw.get("idleEnabled", False))
+    try:
+        minutes = int(raw.get("idleMinutes", DEFAULT_IDLE_MINUTES))
+    except (TypeError, ValueError):
+        minutes = DEFAULT_IDLE_MINUTES
+    out["idleMinutes"] = max(MIN_IDLE_MINUTES, min(MAX_IDLE_MINUTES, minutes))
+    mirror = raw.get("mirror")
+    if isinstance(mirror, dict):
+        out["mirror"] = {"left": bool(mirror.get("left", False)), "right": bool(mirror.get("right", False))}
+    return out
 
 
 def _clean_id(value) -> str:
@@ -62,7 +154,20 @@ def normalize(data) -> dict:
                 ids.append(anim_id)
         used.add(group_id)
         groups.append({"id": group_id, "name": name, "ids": ids})
-    return {"favorites": favorites, "groups": groups}
+    scenes: list[dict] = []
+    scene_ids: set[str] = set()
+    for raw in data.get("scenes") or []:
+        scene = normalize_scene(raw)
+        if scene is None or scene["id"] in scene_ids:
+            continue
+        scene_ids.add(scene["id"])
+        scenes.append(scene)
+    return {
+        "favorites": favorites,
+        "groups": groups,
+        "scenes": scenes,
+        "settings": normalize_settings(data.get("settings")),
+    }
 
 
 def load() -> dict:

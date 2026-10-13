@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LED Matrix</title>
-    <link rel="stylesheet" href="/style.css?v=2.6.0" />
+    <link rel="stylesheet" href="/style.css?v=2.7.0" />
   </head>
   <body>
     <header class="top">
@@ -26,6 +26,14 @@
         <button type="button" class="random-btn" id="random-btn" title="Cycle random animations for 10–30 seconds each">
           Random
         </button>
+        <div class="idle-ctl" id="idle-ctl">
+          <button type="button" class="idle-btn" id="idle-btn" aria-pressed="false" title="Dim both wells after a quiet spell; any input wakes them. Brightness ramps over a second.">
+            Idle dim
+          </button>
+          <label class="idle-minutes-label" for="idle-minutes">after</label>
+          <input id="idle-minutes" class="idle-minutes" type="number" min="1" max="240" step="1" value="10" aria-label="Idle minutes before dimming" />
+          <span class="idle-minutes-label">min</span>
+        </div>
         <button type="button" class="help-btn" id="help-btn" title="Keyboard shortcuts and how the app works (?)" aria-label="Help and keyboard shortcuts" aria-haspopup="dialog" aria-controls="help-sheet">
           ?
         </button>
@@ -45,7 +53,10 @@
               <h2>Left</h2>
               <p id="left-name" aria-live="polite">Flappy Bird</p>
             </div>
-            <span class="keys-hint" id="left-keys" aria-live="polite">Keys → Left</span>
+            <div class="module-tools">
+              <span class="keys-hint" id="left-keys" aria-live="polite">Keys → Left</span>
+              <button type="button" class="mirror-btn" id="left-mirror" data-side="left" aria-pressed="false" title="Mirror the left well horizontally (for a module that faces the other way)" aria-label="Mirror left well">↔</button>
+            </div>
           </div>
           <div
             class="bezel"
@@ -71,7 +82,10 @@
               <h2>Right</h2>
               <p id="right-name" aria-live="polite">Fish tank</p>
             </div>
-            <span class="keys-hint" id="right-keys" aria-live="polite">Keys → Right</span>
+            <div class="module-tools">
+              <span class="keys-hint" id="right-keys" aria-live="polite">Keys → Right</span>
+              <button type="button" class="mirror-btn" id="right-mirror" data-side="right" aria-pressed="false" title="Mirror the right well horizontally (for a module that faces the other way)" aria-label="Mirror right well">↔</button>
+            </div>
           </div>
           <div
             class="bezel"
@@ -130,11 +144,19 @@
           <p class="groups-hint" id="groups-hint" hidden></p>
         </div>
 
+        <div class="scenes" id="scenes" aria-label="Scenes">
+          <div class="scene-row" id="scene-row">
+            <p class="groups-status" id="scenes-status">Loading scenes…</p>
+            <button type="button" class="scene-new" id="new-scene">Save scene</button>
+          </div>
+        </div>
+
         <div class="assign first-run" id="first-run" hidden>
           <p>
             Both rails show the whole library: the left rail plays on the left well, the right rail on the right.
             Drag a card onto a well, or use the <strong>L</strong>/<strong>R</strong> badges. Hover a card for a live thumbnail.
             Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once.
+            <strong>Save scene</strong> keeps both wells plus brightness and speed for one-click recall, with an optional daily time window.
             Press <strong>?</strong> any time for keyboard shortcuts.
           </p>
           <button type="button" class="hint-dismiss" id="hint-dismiss">Got it</button>
@@ -163,6 +185,6 @@
 
     <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
-    <script src="/app.js?v=2.6.0"></script>
+    <script src="/app.js?v=2.7.0"></script>
   </body>
 </html>
