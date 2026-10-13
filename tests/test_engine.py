@@ -586,6 +586,10 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(kinds["om-screensaver"], "omarchy")
         self.assertEqual(kinds["om-matrix"], "omarchy")
         self.assertEqual(kinds["om-omarchy"], "omarchy")
+        self.assertEqual(kinds["om-windows"], "windows")
+        self.assertEqual(kinds["om-linux"], "linux")
+        self.assertEqual(kinds["om-arch"], "arch")
+        self.assertEqual(kinds["om-mac"], "mac")
         self.assertTrue(next(item for item in items if item["id"] == "sk-ink-brush")["drag"])
         counts = {}
         for item in items:
@@ -601,12 +605,19 @@ class EngineTests(unittest.TestCase):
             "status",
             "ambient",
             "omarchy",
+            "windows",
+            "linux",
+            "arch",
+            "mac",
         )
         self.assertEqual(set(counts), set(expected))
         for kind in expected:
             if kind == "omarchy":
                 self.assertGreaterEqual(counts[kind], 20, kind)
                 self.assertLessEqual(counts[kind], 50, kind)
+            elif kind in ("windows", "linux", "arch", "mac"):
+                self.assertGreaterEqual(counts[kind], 1, kind)
+                self.assertLessEqual(counts[kind], 10, kind)
             else:
                 self.assertGreaterEqual(counts[kind], 90, kind)
                 self.assertLessEqual(counts[kind], 110, kind)
@@ -643,14 +654,20 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.8.1", html)
+        self.assertIn("?v=2.8.2", html)
         self.assertNotIn("?v=2.4.1", html)
         self.assertNotIn("?v=2.5.0", html)
         self.assertNotIn("?v=2.6.0", html)
         self.assertNotIn("?v=2.7.0", html)
         self.assertNotIn("?v=2.7.1", html)
         self.assertNotIn("?v=2.7.2", html)
+        self.assertNotIn("?v=2.8.0", html)
+        self.assertNotIn("?v=2.8.1", html)
         self.assertIn('data-kind="omarchy"', html)
+        self.assertIn('data-kind="windows"', html)
+        self.assertIn('data-kind="linux"', html)
+        self.assertIn('data-kind="arch"', html)
+        self.assertIn('data-kind="mac"', html)
         # 2.7.0 UI: scenes row and idle dim. Mirror buttons were removed in 2.7.1.
         self.assertIn('id="scenes"', html)
         self.assertIn('id="new-scene"', html)
@@ -701,6 +718,11 @@ class EngineTests(unittest.TestCase):
         self.assertIn(">Puzzle<", html)
         self.assertIn(">Status<", html)
         self.assertIn(">Ambient<", html)
+        self.assertIn(">Omarchy<", html)
+        self.assertIn(">Windows<", html)
+        self.assertIn(">Linux<", html)
+        self.assertIn(">Arch<", html)
+        self.assertIn(">Mac<", html)
         self.assertIn(">All<", html)
         self.assertNotIn("(Favorites)", html)
         self.assertNotIn("(Game)", html)
@@ -826,6 +848,10 @@ class EngineTests(unittest.TestCase):
         self.assertIn("function beginNewScene(", js)
         self.assertIn('maze: "arrows or tap · a new maze each round"', js)
         self.assertIn('kind === "omarchy"', js)
+        self.assertIn('kind === "windows"', js)
+        self.assertIn('kind === "linux"', js)
+        self.assertIn('kind === "arch"', js)
+        self.assertIn('kind === "mac"', js)
         self.assertIn("function applyIdle(", js)
         self.assertNotIn("function applyMirror(", js)
         self.assertIn("Dimmed · any input wakes", js)

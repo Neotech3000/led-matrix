@@ -133,10 +133,14 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - The live preview stays in the **middle**; the catalog is split left/right of it.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
 
+### What's new in 2.8.2
+
+- **Windows**, **Linux**, **Arch**, and **Mac** are their own type chips, not under Omarchy. Omarchy stays the 28 screensaver wells.
+
 ### What's new in 2.8.1
 
 - **OMARCHY** on the well is sideways, first letter at the **bottom**, reading toward the top.
-- The Omarchy chip keeps **28 screensaver** wells (branded word/mark, the tte-style savers, plus mixed-in **Pendulum / Helix / Scanner / Fountain** loops) and adds **Windows**, **Linux** (Tux), **Arch**, and **Mac** marks. Catalog is **904**.
+- The Omarchy chip is **28 screensaver** wells (branded word/mark, the tte-style savers, plus mixed-in **Pendulum / Helix / Scanner / Fountain** loops). **Windows**, **Linux** (Tux), **Arch**, and **Mac** marks sit beside them. Catalog is **904**.
 
 ### What's new in 2.8.0
 
@@ -206,7 +210,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 
 **Utilities** (the Utility chip): Clock, Timer, Pomodoro (25/5), Stopwatch, UTC, Date, Week number, Fuzzy clock (FIVE PAST), Binary clock, Seconds bar, Alarm (flash at :00), Tap tempo, Battery, CPU pulse, Moon phase, Dice, Coin flip, Progress, Chess clock, Breath pacer (box 4-4-4-4), Water reminder, Focus bar, plus about eighty more timers, dice, calendars, reminders, and converters.
 
-Each type is limited to **about 100** unique animations: **loop**, **game**, **sketch** (Draw), **utility**, **weather**, **music**, **puzzle**, **status**, and **ambient**. Favorites is only a filter.
+Each type is limited to **about 100** unique animations: **loop**, **game**, **sketch** (Draw), **utility**, **weather**, **music**, **puzzle**, **status**, and **ambient**. **Omarchy** is a smaller screensaver pack. **Windows**, **Linux**, **Arch**, and **Mac** are OS marks. Favorites is only a filter.
 
 There are **904** animations. Click a well, then use the keyboard for games and timers. The catalog drops strobes and whole-well flashes (lightning, TV static, react-to-flash games, kick-punch music) so a well is less likely to trigger photosensitive epilepsy.
 

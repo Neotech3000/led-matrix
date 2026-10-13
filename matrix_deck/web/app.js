@@ -463,6 +463,10 @@ function kindLabel(kind) {
   if (kind === "status") return "Status";
   if (kind === "ambient") return "Ambient";
   if (kind === "omarchy") return "Omarchy";
+  if (kind === "windows") return "Windows";
+  if (kind === "linux") return "Linux";
+  if (kind === "arch") return "Arch";
+  if (kind === "mac") return "Mac";
   return "Loop";
 }
 

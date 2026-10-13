@@ -4,7 +4,7 @@ Omarchy's idle screensaver runs terminaltexteffects / ttfx on branding text.
 These are greyscale wells inspired by those effects — they run on any OS, with
 or without Omarchy installed. No whole-well strobes.
 
-Twenty-eight screensaver wells, plus Windows / Linux / Arch / Mac marks.
+Twenty-eight screensaver wells. Windows / Linux / Arch / Mac are their own kinds.
 """
 
 from __future__ import annotations
@@ -615,7 +615,7 @@ PAINTS = {
     "fountain": _fountain,
 }
 
-# Twenty-eight screensaver wells, then four OS marks.
+# Twenty-eight screensaver wells. OS marks live in OS_SPECS with their own kinds.
 SPECS = [
     ("om-screensaver", "Omarchy Screensaver", "Cycles tte-style effects mixed with a few loop motions, the way Omarchy's idle screensaver does.", _screensaver),
     ("om-omarchy", "Omarchy", "OMARCHY sideways, first letter at the bottom, reading toward the top.", _omarchy_word),
@@ -645,16 +645,22 @@ SPECS = [
     ("om-helix", "Omarchy Helix", "A double helix twists through the branded well.", _helix),
     ("om-scanner", "Omarchy Scanner", "A comet bar sweeps the length of the module.", _scanner),
     ("om-fountain", "Omarchy Fountain", "Sparks climb from the base and fall back as glitter.", _fountain),
-    ("om-windows", "Windows", "The four-pane flag, breathing pane by pane.", _windows),
-    ("om-linux", "Linux", "Tux on the well, a slow waddle, no strobe.", _linux),
-    ("om-arch", "Arch", "The Arch spike — light climbs the mountain.", _arch),
-    ("om-mac", "Mac", "A bitten apple with a slow shine.", _mac),
+]
+
+OS_SPECS = [
+    ("om-windows", "Windows", "The four-pane flag, breathing pane by pane.", _windows, "windows"),
+    ("om-linux", "Linux", "Tux on the well, a slow waddle, no strobe.", _linux, "linux"),
+    ("om-arch", "Arch", "The Arch spike — light climbs the mountain.", _arch, "arch"),
+    ("om-mac", "Mac", "A bitten apple with a slow shine.", _mac, "mac"),
 ]
 
 
 def factories() -> dict[str, type]:
-    return {anim_id: formula(anim_id, name, blurb, paint, kind="omarchy") for anim_id, name, blurb, paint in SPECS}
+    table = {anim_id: formula(anim_id, name, blurb, paint, kind="omarchy") for anim_id, name, blurb, paint in SPECS}
+    for anim_id, name, blurb, paint, kind in OS_SPECS:
+        table[anim_id] = formula(anim_id, name, blurb, paint, kind=kind)
+    return table
 
 
 def animation_ids() -> list[str]:
-    return [item[0] for item in SPECS]
+    return [item[0] for item in SPECS] + [item[0] for item in OS_SPECS]

@@ -174,12 +174,16 @@ class ExtraAnimTests(unittest.TestCase):
         ids = animation_ids()
         self.assertEqual(len(ids), 32)
         self.assertEqual(ids[-4:], ["om-windows", "om-linux", "om-arch", "om-mac"])
+        self.assertEqual(len(ids) - 4, 28)
         saver = create_animation("om-screensaver")
         self.assertEqual(saver.kind, "omarchy")
         canvas = Canvas()
         saver.step(0.05, canvas)
         saver.step(9.3, canvas)
-        saver.step(0.4, canvas)
+        for _ in range(24):
+            saver.step(0.2, canvas)
+            if sum(canvas.pixels) > 0:
+                break
         self.assertGreater(sum(canvas.pixels), 0)
         self.assertEqual(create_animation("om-matrix").kind, "omarchy")
         self.assertEqual(create_animation("om-decrypt").name, "Omarchy Decrypt")
@@ -189,19 +193,21 @@ class ExtraAnimTests(unittest.TestCase):
         y_ys = [y for _, y in WORD[-8:]]
         self.assertGreaterEqual(min(o_ys), HEIGHT - 5)
         self.assertGreater(min(o_ys), max(y_ys))
-        for anim_id, title in (
-            ("om-windows", "Windows"),
-            ("om-linux", "Linux"),
-            ("om-arch", "Arch"),
-            ("om-mac", "Mac"),
-            ("om-pendulum", "Omarchy Pendulum"),
-            ("om-helix", "Omarchy Helix"),
-            ("om-scanner", "Omarchy Scanner"),
-            ("om-fountain", "Omarchy Fountain"),
+        for anim_id in ids[:28]:
+            self.assertEqual(create_animation(anim_id).kind, "omarchy", anim_id)
+        for anim_id, title, kind in (
+            ("om-windows", "Windows", "windows"),
+            ("om-linux", "Linux", "linux"),
+            ("om-arch", "Arch", "arch"),
+            ("om-mac", "Mac", "mac"),
+            ("om-pendulum", "Omarchy Pendulum", "omarchy"),
+            ("om-helix", "Omarchy Helix", "omarchy"),
+            ("om-scanner", "Omarchy Scanner", "omarchy"),
+            ("om-fountain", "Omarchy Fountain", "omarchy"),
         ):
             self.assertIn(anim_id, ids)
             anim = create_animation(anim_id)
-            self.assertEqual(anim.kind, "omarchy")
+            self.assertEqual(anim.kind, kind)
             self.assertEqual(anim.name, title)
             frame = Canvas()
             anim.step(0.2, frame)

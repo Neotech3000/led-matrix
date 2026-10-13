@@ -11,7 +11,7 @@ class Animation:
     id = ""
     name = ""
     description = ""
-    kind = "loop"  # loop | game | sketch | utility | weather | music | puzzle | status | ambient
+    kind = "loop"  # loop | game | sketch | utility | weather | music | puzzle | status | ambient | omarchy | windows | linux | arch | mac
     drag = False
 
     def step(self, dt: float, canvas: Canvas) -> None:
