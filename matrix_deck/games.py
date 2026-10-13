@@ -1858,7 +1858,141 @@ class PinballGame(Game):
         canvas.blend(int(round(self.bx)), int(round(self.by)), 255)
 
 
+class Maze(Game):
+    id = "maze"
+    name = "Maze"
+    description = "A new labyrinth every round. Arrows or tap to the exit."
+    drag = True
+
+    def _reset(self) -> None:
+        self.cool = 0.0
+        self.path: list[tuple[int, int]] = []
+        self._carve()
+        self.path = self._route(self.px, self.py, self.goal[0], self.goal[1])
+
+    def _carve(self) -> None:
+        walls = [[1] * WIDTH for _ in range(HEIGHT)]
+        stack = [(1, 1)]
+        walls[1][1] = 0
+        while stack:
+            x, y = stack[-1]
+            opts = []
+            for dx, dy in ((2, 0), (-2, 0), (0, 2), (0, -2)):
+                nx, ny = x + dx, y + dy
+                if 1 <= nx < WIDTH - 1 and 1 <= ny < HEIGHT - 1 and walls[ny][nx]:
+                    opts.append((nx, ny, dx, dy))
+            if not opts:
+                stack.pop()
+                continue
+            nx, ny, dx, dy = self.rng.choice(opts)
+            walls[y + dy // 2][x + dx // 2] = 0
+            walls[ny][nx] = 0
+            stack.append((nx, ny))
+        self.walls = walls
+        self.px, self.py = 1, HEIGHT - 3
+        if self._blocked(self.px, self.py):
+            self.px, self.py = 1, 1
+        self.goal = self._farthest(self.px, self.py)
+
+    def _blocked(self, x: int, y: int) -> bool:
+        return x < 0 or y < 0 or x >= WIDTH or y >= HEIGHT or bool(self.walls[y][x])
+
+    def _open_neighbors(self, x: int, y: int):
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = x + dx, y + dy
+            if not self._blocked(nx, ny):
+                yield nx, ny
+
+    def _farthest(self, sx: int, sy: int) -> tuple[int, int]:
+        seen = {(sx, sy)}
+        queue = deque([(sx, sy)])
+        last = (sx, sy)
+        while queue:
+            x, y = queue.popleft()
+            last = (x, y)
+            for nx, ny in self._open_neighbors(x, y):
+                if (nx, ny) not in seen:
+                    seen.add((nx, ny))
+                    queue.append((nx, ny))
+        return last
+
+    def _route(self, sx: int, sy: int, gx: int, gy: int) -> list[tuple[int, int]]:
+        prev: dict[tuple[int, int], tuple[int, int] | None] = {(sx, sy): None}
+        queue = deque([(sx, sy)])
+        found = False
+        while queue:
+            x, y = queue.popleft()
+            if (x, y) == (gx, gy):
+                found = True
+                break
+            for nx, ny in self._open_neighbors(x, y):
+                if (nx, ny) not in prev:
+                    prev[(nx, ny)] = (x, y)
+                    queue.append((nx, ny))
+        if not found:
+            return []
+        trail = [(gx, gy)]
+        cur = (gx, gy)
+        while prev[cur] is not None:
+            cur = prev[cur]
+            trail.append(cur)
+        trail.reverse()
+        return trail[1:]
+
+    def click(self, x: int = 0, y: int = 0, erase: bool = False) -> None:
+        self._takeover()
+        self._nudge(int(x) - self.px, int(y) - self.py)
+
+    def key(self, code: str) -> None:
+        self._takeover()
+        d = KEYS.get(code)
+        if d:
+            self._nudge(*d)
+
+    def _nudge(self, dx: int, dy: int) -> None:
+        if dx == 0 and dy == 0 or self.cool > 0 or not self.alive:
+            return
+        if abs(dx) > abs(dy):
+            dx, dy = (1 if dx > 0 else -1), 0
+        else:
+            dx, dy = 0, (1 if dy > 0 else -1)
+        nx, ny = self.px + dx, self.py + dy
+        if self._blocked(nx, ny):
+            return
+        self.px, self.py = nx, ny
+        self.cool = 0.08
+        if (nx, ny) == self.goal:
+            self.score += 1
+            self.best = max(self.best, self.score)
+            self._reset()
+
+    def step(self, dt: float, canvas: Canvas) -> None:
+        if self._tick_dead(dt, canvas):
+            return
+        self.cool = max(0.0, self.cool - dt)
+        if self.auto:
+            self.acc += dt
+            if self.acc > 0.22:
+                self.acc = 0.0
+                if not self.path:
+                    self.path = self._route(self.px, self.py, self.goal[0], self.goal[1])
+                if self.path:
+                    self.px, self.py = self.path.pop(0)
+                    if (self.px, self.py) == self.goal:
+                        self.score += 1
+                        self.best = max(self.best, self.score)
+                        self._reset()
+        canvas.clear(0)
+        for y in range(HEIGHT):
+            for x in range(WIDTH):
+                if self.walls[y][x]:
+                    canvas.set(x, y, 70)
+        canvas.blend(self.goal[0], self.goal[1], 200)
+        canvas.blend(self.px, self.py, 255)
+
+
 GAMES: tuple[type[Game], ...] = (
+    Maze,
     Frogger,
     Asteroids,
     Centipede,

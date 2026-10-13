@@ -544,6 +544,7 @@ class EngineTests(unittest.TestCase):
             "hearts",
             "hourglass",
             "pine",
+            "maze",
             "frogger",
             "asteroids",
             "2048",
@@ -561,6 +562,7 @@ class EngineTests(unittest.TestCase):
             self.assertIn(required, ids)
         kinds = {item["id"]: item["kind"] for item in items}
         self.assertEqual(kinds["frogger"], "game")
+        self.assertEqual(kinds["maze"], "game")
         self.assertEqual(kinds["cannons"], "game")
         self.assertEqual(kinds["pinball-game"], "game")
         self.assertEqual(kinds["clock"], "utility")
@@ -626,11 +628,12 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.7.1", html)
+        self.assertIn("?v=2.7.2", html)
         self.assertNotIn("?v=2.4.1", html)
         self.assertNotIn("?v=2.5.0", html)
         self.assertNotIn("?v=2.6.0", html)
         self.assertNotIn("?v=2.7.0", html)
+        self.assertNotIn("?v=2.7.1", html)
         # 2.7.0 UI: scenes row and idle dim. Mirror buttons were removed in 2.7.1.
         self.assertIn('id="scenes"', html)
         self.assertIn('id="new-scene"', html)
@@ -804,6 +807,7 @@ class EngineTests(unittest.TestCase):
         self.assertNotIn("/api/mirror", js)
         self.assertIn("function renderScenes(", js)
         self.assertIn("function beginNewScene(", js)
+        self.assertIn('maze: "arrows or tap · a new maze each round"', js)
         self.assertIn("function applyIdle(", js)
         self.assertNotIn("function applyMirror(", js)
         self.assertIn("Dimmed · any input wakes", js)

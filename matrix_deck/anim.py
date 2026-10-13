@@ -127,6 +127,7 @@ def animation_order() -> list[str]:
         "rhythm",
         "cannons",
         "pinball-game",
+        "maze",
         "eq",
         "warp",
         "scanner",

@@ -1,15 +1,17 @@
 import json
 import os
+import random
 import tempfile
 import threading
 import unittest
 from http.client import HTTPConnection
 from unittest.mock import patch
 
-from matrix_deck import HEIGHT, PIXELS
+from matrix_deck import HEIGHT, PIXELS, WIDTH
 from matrix_deck.anim import create_animation
 from matrix_deck.canvas import Canvas, line_cells
 from matrix_deck.engine import Deck
+from matrix_deck.games import Maze
 from matrix_deck.server import WEB_ROOT, make_server
 
 
@@ -136,6 +138,35 @@ class ExtraAnimTests(unittest.TestCase):
         tetris.step(0.0, over)
         self.assertEqual(tetris.score, 300)
         self.assertGreater(sum(over.pixels[: tetris.SCORE_H * WIDTH]), 0)
+
+    def test_maze_is_a_game_and_carves_a_new_layout(self):
+        first = Maze(rng=random.Random(1))
+        second = Maze(rng=random.Random(2))
+        self.assertEqual(first.id, "maze")
+        self.assertEqual(first.kind, "game")
+        self.assertNotEqual(first.walls, second.walls)
+        self.assertFalse(first._blocked(first.px, first.py))
+        self.assertFalse(first._blocked(*first.goal))
+        self.assertNotEqual((first.px, first.py), first.goal)
+        routed = first._route(first.px, first.py, first.goal[0], first.goal[1])
+        self.assertGreater(len(routed), 0)
+        first.key("ArrowUp")
+        self.assertFalse(first.auto)
+        gx, gy = first.goal
+        for dx, dy, code in ((1, 0, "ArrowRight"), (-1, 0, "ArrowLeft"), (0, 1, "ArrowDown"), (0, -1, "ArrowUp")):
+            nx, ny = gx - dx, gy - dy
+            if 0 <= nx < WIDTH and 0 <= ny < HEIGHT and not first._blocked(nx, ny):
+                first.px, first.py = nx, ny
+                first.cool = 0.0
+                walls_before = [row[:] for row in first.walls]
+                first.key(code)
+                self.assertEqual(first.score, 1)
+                self.assertNotEqual(first.walls, walls_before)
+                break
+        else:
+            self.fail("goal had no open neighbor")
+        catalog = create_animation("maze")
+        self.assertEqual(catalog.kind, "game")
 
     def test_marquee_custom_text_skips_side_columns(self):
         anim = create_animation("marquee")

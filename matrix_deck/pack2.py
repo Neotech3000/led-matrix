@@ -76,42 +76,6 @@ def _waterfall(self, dt, canvas):
                 canvas.blend(x - 1, int(head) - i, _clamp(40 - i * 4))
 
 
-def _maze(self, dt, canvas):
-    walls = self.store.get("walls")
-    if walls is None:
-        rng = self.rng
-        walls = [[1] * WIDTH for _ in range(HEIGHT)]
-        stack = [(1, 1)]
-        walls[1][1] = 0
-        while stack:
-            x, y = stack[-1]
-            opts = []
-            for dx, dy in ((2, 0), (-2, 0), (0, 2), (0, -2)):
-                nx, ny = x + dx, y + dy
-                if 1 <= nx < WIDTH - 1 and 1 <= ny < HEIGHT - 1 and walls[ny][nx]:
-                    opts.append((nx, ny, dx, dy))
-            if not opts:
-                stack.pop()
-                continue
-            nx, ny, dx, dy = rng.choice(opts)
-            walls[y + dy // 2][x + dx // 2] = 0
-            walls[ny][nx] = 0
-            stack.append((nx, ny))
-        self.store["walls"] = walls
-        self.store["mouse"] = [1.0, 1.0]
-    mouse = self.store["mouse"]
-    canvas.clear(0)
-    for y in range(HEIGHT):
-        for x in range(WIDTH):
-            if walls[y][x]:
-                canvas.set(x, y, 70)
-    mouse[0] += math.sin(self.t * 1.4) * 6 * dt
-    mouse[1] += (3.4 + math.sin(self.t * 0.7)) * dt
-    if mouse[1] > HEIGHT - 2:
-        mouse[1] = 1.0
-    canvas.blend(int(mouse[0]) % WIDTH, int(mouse[1]), 255)
-
-
 def _ants(self, dt, canvas):
     ants = self.store.setdefault(
         "ants",
@@ -1278,7 +1242,6 @@ def _pine(self, dt, canvas):
 SPECS = [
     ("metronome", "Metronome", "A pendulum ticks the length of the module.", _metronome),
     ("dna", "DNA", "A double helix unwinds down the well.", _dna),
-    ("maze", "Maze", "A mouse threads a carved labyrinth.", _maze),
     ("ants", "Ants", "Nine ants wander and leave short trails.", _ants),
     ("abacus", "Abacus", "Beads slide on eight wires.", _abacus),
     ("countdown", "Countdown", "Nine to zero, then it starts over.", _countdown),

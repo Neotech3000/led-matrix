@@ -48,6 +48,7 @@ const GAME_HINTS = {
   rhythm: "hit notes on the line · space / click lane",
   cannons: "tap to burst incoming missiles",
   "pinball-game": "drag or space to kick the flipper",
+  maze: "arrows or tap · a new maze each round",
 };
 
 const UTILITY_KEYS = {
@@ -2022,6 +2023,7 @@ function wantsDrag(id) {
     "2048",
     "cannons",
     "pinball-game",
+    "maze",
   ].includes(id);
 }
 

@@ -133,6 +133,10 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - The live preview stays in the **middle**; the catalog is split left/right of it.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
 
+### What's new in 2.7.2
+
+- **Maze** is a game now, not a loop. Arrows, WASD, or a tap steer you to the exit. Reaching it scores a point and **carves a new maze** — every start and every win is a different layout. Autopilot walks a path until you take over.
+
 ### What's new in 2.7.1
 
 - Arrow keys always go to the focused well's game (Tetris, Snake, Pong, …). Card hopping with ↑/↓ is gone. The search box no longer shows a `(/)` hint, and `/` is not a shortcut.
@@ -176,6 +180,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 | **Falling sand** | Drag to pour sand. Shift-drag erases. C clears. |
 | **Breakout / Dodge** | Drag or ← →. |
 | **Tetris** | WASD or arrows. Live score at the top of the well. |
+| **Maze** | Arrows, WASD, or tap toward the exit. A new maze each round. |
 | **Invaders** | ← → to move, Space to shoot. |
 | **Dino run / Flappy** | Click or Space. |
 | **Frogger / Racetrack / Catcher** | Hop or steer with tap / ← →. |
