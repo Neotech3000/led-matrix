@@ -1214,6 +1214,9 @@ body.sheet-open { overflow: hidden; }
     overflow: visible;
   }
   .meter-value { min-width: 2.6em; }
+  .keys-hint { display: none; }
+  .module-head { align-items: start; }
+  .module-head p { font-size: 0.76rem; }
   .keys > div { grid-template-columns: 1fr; gap: 2px; }
   .sheet-scrim { padding: 0; align-items: flex-end; }
   .sheet { max-height: 92vh; border-radius: 16px 16px 0 0; }
