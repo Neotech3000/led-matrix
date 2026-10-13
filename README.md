@@ -122,7 +122,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
 - **Search** and the type chips sit **under the two live wells**, not in the top bar. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
-- Compact type chips **All** **Favorites** **Game** **Loop** **Draw** **Utility** **Weather** **Music** **Puzzle** **Status** **Ambient** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels. **Favorites** is a filter, not a catalog kind.
+- Compact type chips **All** **Favorites** **Game** **Loop** **Draw** **Utility** **Weather** **Music** **Puzzle** **Status** **Ambient** **Omarchy** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels. **Favorites** is a filter, not a catalog kind.
 - **Hearts** on each card save a global favorite. The **Favorites** chip shows only those.
 - **Groups:** click **New group**, name it (for example Desk mix), and it appears in the bubble row immediately — no restart. Each bubble has two targets: the **name** opens/filters that group (members only; an empty group still shows the full catalog). The **+** enters selection mode without opening it — the catalog stays on All/type/search so you can tap many cards (or card + / heart) to add. Banner: “Adding to Desk mix — tap cards to add. Esc or Done to exit.” Click **+** again, **Done**, or Escape to leave; click the name while adding to review the group. Each bubble has its own **Random** that cycles only that group (10–30s, both wells, skip sketch/sand). Top-bar **Random** still walks the whole catalog. Group random and catalog Random are mutually exclusive; assigning a card by hand turns that shuffle off.
 - Favorites, groups, scenes, and settings (idle dim) are saved in the app data folder:
@@ -132,6 +132,10 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch, falling sand, and every other draw mode stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
 - The live preview stays in the **middle**; the catalog is split left/right of it.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
+
+### What's new in 2.8.0
+
+- **Omarchy** is a new type chip: 38 loops inspired by Omarchy itself and by the idle screensaver (`tte` / `ttfx` on `screensaver.txt`). **Omarchy Screensaver** cycles those effects the way the desktop saver does. **Omarchy** and **Omarchy Mark** are the stacked word and the breathing O. The rest map the screensaver library onto the 9×34 well — Matrix, Decrypt, Beams, Pour, Fireworks, Synth Grid, VHS Tape, and so on. Greyscale, no strobes. They run on Linux, Windows, and macOS; you do not need Omarchy installed.
 
 ### What's new in 2.7.2
 
@@ -199,7 +203,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 
 Each type is limited to **about 100** unique animations: **loop**, **game**, **sketch** (Draw), **utility**, **weather**, **music**, **puzzle**, **status**, and **ambient**. Favorites is only a filter.
 
-There are **872** animations. Click a well, then use the keyboard for games and timers. The catalog drops strobes and whole-well flashes (lightning, TV static, react-to-flash games, kick-punch music) so a well is less likely to trigger photosensitive epilepsy.
+There are **910** animations. Click a well, then use the keyboard for games and timers. The catalog drops strobes and whole-well flashes (lightning, TV static, react-to-flash games, kick-punch music) so a well is less likely to trigger photosensitive epilepsy.
 
 ## If left and right are swapped
 

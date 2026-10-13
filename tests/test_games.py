@@ -168,6 +168,21 @@ class ExtraAnimTests(unittest.TestCase):
         catalog = create_animation("maze")
         self.assertEqual(catalog.kind, "game")
 
+    def test_omarchy_screensaver_pack_is_its_own_kind(self):
+        from matrix_deck.omarchy import animation_ids
+
+        ids = animation_ids()
+        self.assertEqual(len(ids), 38)
+        saver = create_animation("om-screensaver")
+        self.assertEqual(saver.kind, "omarchy")
+        canvas = Canvas()
+        saver.step(0.05, canvas)
+        saver.step(9.3, canvas)
+        saver.step(0.4, canvas)
+        self.assertGreater(sum(canvas.pixels), 0)
+        self.assertEqual(create_animation("om-matrix").kind, "omarchy")
+        self.assertEqual(create_animation("om-decrypt").name, "Omarchy Decrypt")
+
     def test_marquee_custom_text_skips_side_columns(self):
         anim = create_animation("marquee")
         anim.set_text("HI")

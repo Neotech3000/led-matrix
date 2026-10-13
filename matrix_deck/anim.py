@@ -60,6 +60,7 @@ def animation_order() -> list[str]:
     from matrix_deck.ambient import animation_ids as ambient_ids
     from matrix_deck.game_pack import animation_ids as game_pack_ids
     from matrix_deck.music_pack import animation_ids as music_ids
+    from matrix_deck.omarchy import animation_ids as omarchy_ids
     from matrix_deck.pack import animation_ids as pack_ids
     from matrix_deck.pack2 import animation_ids as pack2_ids
     from matrix_deck.pack3 import animation_ids as pack3_ids
@@ -176,6 +177,7 @@ def animation_order() -> list[str]:
         + puzzle_ids()
         + status_ids()
         + ambient_ids()
+        + omarchy_ids()
     )
     return _ORDER_CACHE
 
@@ -191,6 +193,7 @@ def factories() -> dict[str, type[Animation]]:
         game_pack,
         games,
         music_pack,
+        omarchy,
         pack,
         pack2,
         pack3,
@@ -287,6 +290,7 @@ def factories() -> dict[str, type[Animation]]:
     table.update(puzzle.factories())
     table.update(status.factories())
     table.update(ambient.factories())
+    table.update(omarchy.factories())
     _FACTORY_CACHE = table
     return table
 

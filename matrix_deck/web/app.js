@@ -462,6 +462,7 @@ function kindLabel(kind) {
   if (kind === "puzzle") return "Puzzle";
   if (kind === "status") return "Status";
   if (kind === "ambient") return "Ambient";
+  if (kind === "omarchy") return "Omarchy";
   return "Loop";
 }
 
