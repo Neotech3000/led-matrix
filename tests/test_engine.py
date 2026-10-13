@@ -51,7 +51,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(len(snap["right"]), 9 * 34)
         self.assertNotIn("catalog", snap)
         self.assertEqual(snap["catalogRev"], catalog_revision())
-        self.assertTrue(snap["catalogRev"].startswith("910-"))
+        self.assertTrue(snap["catalogRev"].startswith("904-"))
         self.assertEqual(snap["left_anim"], "flappy")
         self.assertEqual(snap["right_anim"], "fishtank")
         self.assertEqual(snap["speed"], 1.0)
@@ -80,12 +80,12 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(status, 200)
             data = json.loads(raw)
             self.assertEqual(data["rev"], frame["catalogRev"])
-            self.assertEqual(len(data["animations"]), 910)
+            self.assertEqual(len(data["animations"]), 904)
             self.assertGreater(len(raw), 40 * 1024)
             status, raw = _get(f"{base}/api/health")
             health = json.loads(raw)
             self.assertEqual(health["version"], __version__)
-            self.assertEqual(health["animations"], 910)
+            self.assertEqual(health["animations"], 904)
             self.assertEqual(health["catalogRev"], frame["catalogRev"])
         finally:
             httpd.shutdown()
@@ -511,7 +511,7 @@ class EngineTests(unittest.TestCase):
         ids = [item["id"] for item in items]
         self.assertEqual(len(ids), len(catalog_meta()))
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(len(ids), 910)
+        self.assertEqual(len(ids), 904)
         for removed in (
             "lightning",
             "static",
@@ -561,6 +561,10 @@ class EngineTests(unittest.TestCase):
             "om-screensaver",
             "om-matrix",
             "om-omarchy",
+            "om-windows",
+            "om-linux",
+            "om-arch",
+            "om-mac",
         ):
             self.assertIn(required, ids)
         kinds = {item["id"]: item["kind"] for item in items}
@@ -639,7 +643,7 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.8.0", html)
+        self.assertIn("?v=2.8.1", html)
         self.assertNotIn("?v=2.4.1", html)
         self.assertNotIn("?v=2.5.0", html)
         self.assertNotIn("?v=2.6.0", html)

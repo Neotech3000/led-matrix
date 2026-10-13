@@ -172,7 +172,8 @@ class ExtraAnimTests(unittest.TestCase):
         from matrix_deck.omarchy import animation_ids
 
         ids = animation_ids()
-        self.assertEqual(len(ids), 38)
+        self.assertEqual(len(ids), 32)
+        self.assertEqual(ids[-4:], ["om-windows", "om-linux", "om-arch", "om-mac"])
         saver = create_animation("om-screensaver")
         self.assertEqual(saver.kind, "omarchy")
         canvas = Canvas()
@@ -182,6 +183,29 @@ class ExtraAnimTests(unittest.TestCase):
         self.assertGreater(sum(canvas.pixels), 0)
         self.assertEqual(create_animation("om-matrix").kind, "omarchy")
         self.assertEqual(create_animation("om-decrypt").name, "Omarchy Decrypt")
+        from matrix_deck.omarchy import WORD
+
+        o_ys = [y for _, y in WORD[:12]]
+        y_ys = [y for _, y in WORD[-8:]]
+        self.assertGreaterEqual(min(o_ys), HEIGHT - 5)
+        self.assertGreater(min(o_ys), max(y_ys))
+        for anim_id, title in (
+            ("om-windows", "Windows"),
+            ("om-linux", "Linux"),
+            ("om-arch", "Arch"),
+            ("om-mac", "Mac"),
+            ("om-pendulum", "Omarchy Pendulum"),
+            ("om-helix", "Omarchy Helix"),
+            ("om-scanner", "Omarchy Scanner"),
+            ("om-fountain", "Omarchy Fountain"),
+        ):
+            self.assertIn(anim_id, ids)
+            anim = create_animation(anim_id)
+            self.assertEqual(anim.kind, "omarchy")
+            self.assertEqual(anim.name, title)
+            frame = Canvas()
+            anim.step(0.2, frame)
+            self.assertGreater(sum(frame.pixels), 0, anim_id)
 
     def test_marquee_custom_text_skips_side_columns(self):
         anim = create_animation("marquee")

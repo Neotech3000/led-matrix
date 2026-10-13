@@ -133,9 +133,14 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - The live preview stays in the **middle**; the catalog is split left/right of it.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
 
+### What's new in 2.8.1
+
+- **OMARCHY** on the well is sideways, first letter at the **bottom**, reading toward the top.
+- The Omarchy chip keeps **28 screensaver** wells (branded word/mark, the tte-style savers, plus mixed-in **Pendulum / Helix / Scanner / Fountain** loops) and adds **Windows**, **Linux** (Tux), **Arch**, and **Mac** marks. Catalog is **904**.
+
 ### What's new in 2.8.0
 
-- **Omarchy** is a new type chip: 38 loops inspired by Omarchy itself and by the idle screensaver (`tte` / `ttfx` on `screensaver.txt`). **Omarchy Screensaver** cycles those effects the way the desktop saver does. **Omarchy** and **Omarchy Mark** are the stacked word and the breathing O. The rest map the screensaver library onto the 9×34 well — Matrix, Decrypt, Beams, Pour, Fireworks, Synth Grid, VHS Tape, and so on. Greyscale, no strobes. They run on Linux, Windows, and macOS; you do not need Omarchy installed.
+- **Omarchy** is a new type chip: loops inspired by Omarchy itself and by the idle screensaver (`tte` / `ttfx` on `screensaver.txt`). **Omarchy Screensaver** cycles those effects the way the desktop saver does. Greyscale, no strobes. They run on Linux, Windows, and macOS; you do not need Omarchy installed.
 
 ### What's new in 2.7.2
 
@@ -203,7 +208,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 
 Each type is limited to **about 100** unique animations: **loop**, **game**, **sketch** (Draw), **utility**, **weather**, **music**, **puzzle**, **status**, and **ambient**. Favorites is only a filter.
 
-There are **910** animations. Click a well, then use the keyboard for games and timers. The catalog drops strobes and whole-well flashes (lightning, TV static, react-to-flash games, kick-punch music) so a well is less likely to trigger photosensitive epilepsy.
+There are **904** animations. Click a well, then use the keyboard for games and timers. The catalog drops strobes and whole-well flashes (lightning, TV static, react-to-flash games, kick-punch music) so a well is less likely to trigger photosensitive epilepsy.
 
 ## If left and right are swapped
 

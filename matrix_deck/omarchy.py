@@ -3,6 +3,8 @@
 Omarchy's idle screensaver runs terminaltexteffects / ttfx on branding text.
 These are greyscale wells inspired by those effects — they run on any OS, with
 or without Omarchy installed. No whole-well strobes.
+
+Twenty-eight screensaver wells, plus Windows / Linux / Arch / Mac marks.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from matrix_deck import HEIGHT, WIDTH
 from matrix_deck.formula import clamp, formula
 from matrix_deck.utility import FONT3
 
-# Screensaver cycle skips the word/mark loops and uses the tte-inspired paints.
+# Screensaver cycle: tte-style paints mixed with a few loop-style ones.
 CYCLE = (
     "beams",
     "matrix",
@@ -27,21 +29,34 @@ CYCLE = (
     "spotlights",
     "blackhole",
     "vhstape",
+    "pendulum",
+    "helix",
+    "scanner",
+    "fountain",
 )
 
 
-def _word_mask() -> list[tuple[int, int]]:
-    """Stacked OMARCHY in 3×5 glyphs, two letters per row, down the well."""
-    text = "OMARCHY"
+def _glyph_sideways(ch: str) -> list[tuple[int, int]]:
+    """3×5 FONT3 rotated 90° CCW: 5 wide × 3 tall, so letters sit sideways."""
+    rows = FONT3.get(ch.upper(), FONT3[" "])
     cells: list[tuple[int, int]] = []
+    for dy, row in enumerate(rows):
+        for dx, cell in enumerate(row):
+            if cell != " ":
+                cells.append((dy, 2 - dx))
+    return cells
+
+
+def _word_mask(text: str = "OMARCHY") -> list[tuple[int, int]]:
+    """Sideways letters, first character at the bottom, reading toward the top."""
+    cells: list[tuple[int, int]] = []
+    ox = 2
     for i, ch in enumerate(text):
-        ox = 1 if i % 2 == 0 else 5
-        oy = 1 + (i // 2) * 6
-        rows = FONT3.get(ch, FONT3[" "])
-        for dy, row in enumerate(rows):
-            for dx, cell in enumerate(row):
-                if cell != " " and 0 <= ox + dx < WIDTH and 0 <= oy + dy < HEIGHT:
-                    cells.append((ox + dx, oy + dy))
+        oy = HEIGHT - 4 - i * 4
+        for nx, ny in _glyph_sideways(ch):
+            x, y = ox + nx, oy + ny
+            if 0 <= x < WIDTH and 0 <= y < HEIGHT:
+                cells.append((x, y))
     return cells
 
 
@@ -51,6 +66,15 @@ WORD = _word_mask()
 def _paint_word(canvas, value: int = 220) -> None:
     for x, y in WORD:
         canvas.blend(x, y, value)
+
+
+def _stamp(canvas, rows: tuple[str, ...], ox: int, oy: int, shift_x: int = 0) -> None:
+    """Draw a greyscale sprite. @ bright, # mid, + hot, : dim, . skip."""
+    tone = {"@": 230, "#": 190, "+": 255, ":": 90, "*": 140}
+    for dy, row in enumerate(rows):
+        for dx, ch in enumerate(row):
+            if ch in tone:
+                canvas.blend(ox + dx + shift_x, oy + dy, tone[ch])
 
 
 # ----- Omarchy-branded -------------------------------------------------------
@@ -117,23 +141,6 @@ def _beams(self, dt, canvas):
             canvas.blend(x, y + 1, 70)
 
 
-def _binarypath(self, dt, canvas):
-    bits = self.store.setdefault(
-        "bits",
-        [[float(x), float(self.rng.uniform(0, HEIGHT)), float(hy)] for x, hy in WORD],
-    )
-    canvas.clear(0)
-    for i, bit in enumerate(bits):
-        tx, ty = WORD[i % len(WORD)]
-        bit[0] += (tx - bit[0]) * min(1.0, 1.8 * dt)
-        bit[1] += (ty - bit[1]) * min(1.0, 1.8 * dt)
-        canvas.blend(int(bit[0]), int(bit[1]), 230)
-        if abs(bit[0] - tx) < 0.2 and abs(bit[1] - ty) < 0.2:
-            bit[0] = self.rng.uniform(0, WIDTH - 1)
-            bit[1] = 0.0
-    _paint_word(canvas, 50)
-
-
 def _blackhole(self, dt, canvas):
     canvas.clear(0)
     cx, cy = 4.0, 16.5 + 2 * math.sin(self.t * 0.4)
@@ -145,29 +152,6 @@ def _blackhole(self, dt, canvas):
             v = 18 + 200 * (0.5 + 0.5 * math.sin(ang * 3 - r * 1.4)) * math.exp(-r * 0.22)
             canvas.set(x, y, clamp(v))
     canvas.set(4, int(cy), 8)
-
-
-def _bouncyballs(self, dt, canvas):
-    balls = self.store.setdefault(
-        "d",
-        [[self.rng.uniform(0, WIDTH - 1), self.rng.uniform(-8, 0), self.rng.uniform(8, 16)] for _ in range(6)],
-    )
-    canvas.clear(4)
-    _paint_word(canvas, 28)
-    keep = []
-    for x, y, vy in balls:
-        y += vy * dt
-        vy += 22 * dt
-        if y > HEIGHT - 1:
-            y = HEIGHT - 1
-            vy *= -0.72
-            if abs(vy) < 4:
-                y = -2.0
-                vy = self.rng.uniform(8, 16)
-                x = self.rng.uniform(0, WIDTH - 1)
-        canvas.blend(int(x), int(y), 240)
-        keep.append([x, y, vy])
-    self.store["d"] = keep
 
 
 def _bubbles(self, dt, canvas):
@@ -195,15 +179,6 @@ def _burn(self, dt, canvas):
         for x in range(WIDTH):
             canvas.set(x, y, clamp(20 + (180 * heat + 40 * ember) * (0.7 + 0.3 * ((x + y) % 3 == 0))))
     _paint_word(canvas, 90)
-
-
-def _colorshift(self, dt, canvas):
-    canvas.clear(0)
-    for y in range(HEIGHT):
-        v = 30 + 90 * (0.5 + 0.5 * math.sin(self.t * 0.55 + y * 0.18))
-        for x in range(WIDTH):
-            canvas.set(x, y, clamp(v + 40 * (0.5 + 0.5 * math.sin(self.t * 0.4 + x))))
-    _paint_word(canvas, 220)
 
 
 def _crumble(self, dt, canvas):
@@ -240,29 +215,6 @@ def _decrypt(self, dt, canvas):
             if (int(self.t * 6) + i * 3) % 4 == 0:
                 canvas.blend(self.rng.randrange(WIDTH), y, 90)
             canvas.blend(x, y, 40)
-
-
-def _errorcorrect(self, dt, canvas):
-    canvas.clear(0)
-    t = self.t * 0.55
-    for i, (x, y) in enumerate(WORD):
-        wrong = 0.5 + 0.5 * math.sin(t + i)
-        if wrong > 0.35:
-            canvas.blend(x, y, 230)
-        else:
-            canvas.blend((x + 1 + i) % WIDTH, min(HEIGHT - 1, y + 1), 140)
-
-
-def _expand(self, dt, canvas):
-    canvas.clear(0)
-    r = (self.t * 7) % 22
-    cx, cy = 4.0, 16.5
-    for y in range(HEIGHT):
-        for x in range(WIDTH):
-            d = math.hypot(x - cx, (y - cy) * 0.55)
-            if abs(d - r) < 1.4:
-                canvas.set(x, y, clamp(220 - abs(d - r) * 80))
-    _paint_word(canvas, 50)
 
 
 def _fireworks(self, dt, canvas):
@@ -324,42 +276,6 @@ def _matrix(self, dt, canvas):
         canvas.blend(x, int(h), 255)
 
 
-def _middleout(self, dt, canvas):
-    canvas.clear(0)
-    span = (0.5 + 0.5 * math.sin(self.t * 0.7)) * (HEIGHT / 2)
-    mid = HEIGHT / 2
-    for y in range(HEIGHT):
-        if abs(y - mid) <= span:
-            for x, wy in WORD:
-                if wy == y:
-                    canvas.blend(x, y, 220)
-            for x in range(WIDTH):
-                canvas.blend(x, y, 18)
-
-
-def _orbittingvolley(self, dt, canvas):
-    canvas.clear(0)
-    cx, cy = 4.0, 16.5
-    for i in range(5):
-        ang = self.t * (0.8 + i * 0.15) + i
-        r = 3 + i * 1.6
-        x = cx + math.cos(ang) * 3.2
-        y = cy + math.sin(ang) * r
-        canvas.blend(int(x), int(y), 240)
-        canvas.blend(int(x), int(y) - 1, 80)
-    canvas.blend(4, 16, 60)
-
-
-def _overflow(self, dt, canvas):
-    canvas.clear(0)
-    fill = (self.t * 4.5) % (HEIGHT + 6)
-    for y in range(HEIGHT):
-        v = 200 if y > HEIGHT - fill else 12
-        for x in range(WIDTH):
-            canvas.set(x, y, v)
-    _paint_word(canvas, 40)
-
-
 def _pour(self, dt, canvas):
     canvas.clear(0)
     col = int(self.t * 1.3) % WIDTH
@@ -397,18 +313,6 @@ def _rain(self, dt, canvas):
     self.store["d"] = keep[-20:]
 
 
-def _randomsequence(self, dt, canvas):
-    canvas.clear(0)
-    n = int(min(len(WORD), self.t * 5))
-    order = self.store.setdefault("order", list(range(len(WORD))))
-    if "shuffled" not in self.store:
-        self.rng.shuffle(order)
-        self.store["shuffled"] = True
-    for i in order[:n]:
-        x, y = WORD[i]
-        canvas.blend(x, y, 220)
-
-
 def _rings(self, dt, canvas):
     canvas.clear(0)
     cx, cy = 4.0, 16.5
@@ -421,61 +325,16 @@ def _rings(self, dt, canvas):
                     canvas.blend(x, y, clamp(210 - k * 30))
 
 
-def _scattered(self, dt, canvas):
-    canvas.clear(0)
-    u = 0.5 + 0.5 * math.sin(self.t * 0.45)
-    for i, (x, y) in enumerate(WORD):
-        sx = (i * 3) % WIDTH
-        sy = (i * 5) % HEIGHT
-        px = sx + (x - sx) * u
-        py = sy + (y - sy) * u
-        canvas.blend(int(px), int(py), 220)
-
-
-def _slice(self, dt, canvas):
-    canvas.clear(0)
-    _paint_word(canvas, 40)
-    y0 = int((self.t * 6) % HEIGHT)
-    for y in range(y0, min(HEIGHT, y0 + 4)):
-        shift = int(2 * math.sin(self.t * 2 + y))
-        for x, wy in WORD:
-            if wy == y:
-                canvas.blend((x + shift) % WIDTH, y, 230)
-
-
-def _slide(self, dt, canvas):
-    canvas.clear(0)
-    off = int((1 - min(1.0, (self.t * 0.35) % 1.4)) * WIDTH)
-    for x, y in WORD:
-        canvas.blend(x + off, y, 220)
-
-
 def _spotlights(self, dt, canvas):
     canvas.clear(8)
     _paint_word(canvas, 35)
-    for i, amp in enumerate((10.0, 18.0)):
+    for i in range(2):
         x = 4 + 3 * math.sin(self.t * (0.7 + i * 0.3) + i)
         y = 8 + 16 * (0.5 + 0.5 * math.sin(self.t * (0.5 + i * 0.2)))
         for yy in range(HEIGHT):
             for xx in range(WIDTH):
                 d = math.hypot(xx - x, (yy - y) * 0.6)
                 canvas.blend(xx, yy, clamp(180 * math.exp(-d * d * 0.55)))
-
-
-def _spray(self, dt, canvas):
-    drops = self.store.setdefault("d", [])
-    if self.rng.random() < 0.4:
-        drops.append([4.0, HEIGHT - 2.0, self.rng.uniform(-8, 8), self.rng.uniform(-22, -10)])
-    canvas.clear(0)
-    keep = []
-    for x, y, vx, vy in drops:
-        x += vx * dt
-        y += vy * dt
-        vy += 18 * dt
-        if 0 <= y < HEIGHT:
-            canvas.blend(int(x), int(y), 210)
-            keep.append([x, y, vx, vy])
-    self.store["d"] = keep[-24:]
 
 
 def _swarm(self, dt, canvas):
@@ -563,11 +422,178 @@ def _wipe(self, dt, canvas):
             canvas.blend(x, wy, 230)
 
 
-def _slide_up(self, dt, canvas):
+# ----- mixed-in loop styles --------------------------------------------------
+
+def _pendulum(self, dt, canvas):
     canvas.clear(0)
-    off = int((1 - min(1.0, (self.t * 0.4) % 1.5)) * HEIGHT)
-    for x, y in WORD:
-        canvas.blend(x, y + off, 220)
+    _paint_word(canvas, 32)
+    ang = math.sin(self.t * 1.15) * 0.62
+    for dist in range(0, 30):
+        x = 4 + math.sin(ang) * dist * 0.26
+        y = dist * 1.05
+        canvas.blend(int(round(x)), int(y), clamp(28 + dist * 5))
+    bob_x = 4 + math.sin(ang) * 7.2
+    bob_y = 27
+    canvas.blend(int(round(bob_x)), int(bob_y), 255)
+    canvas.blend(int(round(bob_x)), int(bob_y) - 1, 160)
+    canvas.blend(int(round(bob_x)) - 1, int(bob_y), 110)
+    canvas.blend(int(round(bob_x)) + 1, int(bob_y), 110)
+
+
+def _helix(self, dt, canvas):
+    canvas.clear(0)
+    _paint_word(canvas, 28)
+    for y in range(HEIGHT):
+        a = y * 0.45 - self.t * 2.0
+        x1 = 4 + 3.2 * math.sin(a)
+        x2 = 4 + 3.2 * math.sin(a + math.pi)
+        canvas.blend(int(round(x1)), y, 240)
+        canvas.blend(int(round(x2)), y, 170)
+        if int(y + self.t * 6) % 5 == 0:
+            lo, hi = sorted((x1, x2))
+            for x in range(int(lo) + 1, int(hi)):
+                canvas.blend(x, y, 50)
+
+
+def _scanner(self, dt, canvas):
+    canvas.clear(0)
+    _paint_word(canvas, 40)
+    span = HEIGHT - 1
+    cycle = (self.t * 10) % (span * 2)
+    pos = cycle if cycle <= span else (span * 2 - cycle)
+    for y in range(HEIGHT):
+        dist = abs(y - pos)
+        if dist > 7:
+            continue
+        v = 230 * (1.0 - dist / 7) ** 2
+        for x in range(WIDTH):
+            edge = 1.0 if x in (0, WIDTH - 1) else 0.8
+            canvas.blend(x, y, clamp(v * edge))
+
+
+def _fountain(self, dt, canvas):
+    drops = self.store.setdefault("d", [])
+    if self.rng.random() < 0.28:
+        drops.append(
+            [
+                4.0 + self.rng.uniform(-0.5, 0.5),
+                float(HEIGHT - 1),
+                self.rng.uniform(-3.2, 3.2),
+                self.rng.uniform(-26, -14),
+            ]
+        )
+    canvas.clear(0)
+    _paint_word(canvas, 30)
+    keep = []
+    for x, y, vx, vy in drops:
+        vy += 32 * dt
+        x += vx * dt
+        y += vy * dt
+        if 0 <= y < HEIGHT:
+            canvas.blend(int(x), int(y), 220)
+            keep.append([x, y, vx, vy])
+    self.store["d"] = keep[-28:]
+    for x in range(3, 6):
+        canvas.blend(x, HEIGHT - 1, 90)
+
+
+# ----- OS marks --------------------------------------------------------------
+
+WINDOWS_PANES = (
+    (1, 11, 3, 4),
+    (5, 10, 3, 4),
+    (1, 16, 3, 4),
+    (5, 15, 3, 4),
+)
+
+TUX = (
+    "...@@@...",
+    "..@@@@@..",
+    ".@@@.@@@.",
+    ".@@...@@.",
+    "..@@@@@..",
+    "...###...",
+    "...###...",
+    "..@@@@@..",
+    ".@@@.@@@.",
+    ".@@+++@@.",
+    ".@@+++@@.",
+    ".@@+++@@.",
+    ".@@+++@@.",
+    ".@@@@@@@.",
+    "..@@@@@..",
+    "..@@.@@..",
+    ".@@@.@@@.",
+    ".@@...@@.",
+)
+
+APPLE = (
+    "....#....",
+    "...##....",
+    "..@@@@@..",
+    ".@@@@@@@.",
+    ".@@@.@@@.",
+    ".@@...@@.",
+    ".@@@.@@@.",
+    ".@@@@@@@.",
+    "..@@@@@..",
+    "...@@@...",
+)
+
+
+def _windows(self, dt, canvas):
+    """Four-pane Windows flag, panes breathing out of phase — not a flash."""
+    canvas.clear(0)
+    t = self.t * 0.55
+    for i, (x0, y0, w, h) in enumerate(WINDOWS_PANES):
+        glow = 0.5 + 0.5 * (0.5 + 0.5 * math.sin(t + i * 1.57))
+        v = clamp(80 + 160 * glow)
+        for y in range(y0, y0 + h):
+            for x in range(x0, x0 + w):
+                canvas.set(x, y, v)
+
+
+def _linux(self, dt, canvas):
+    canvas.clear(0)
+    sway = int(round(math.sin(self.t * 0.7)))
+    oy = 8
+    _stamp(canvas, TUX, 0, oy, sway)
+    if (self.t % 4.8) < 0.18:
+        canvas.set(4 + sway, oy + 2, 210)
+        canvas.set(3 + sway, oy + 3, 210)
+        canvas.set(4 + sway, oy + 3, 210)
+        canvas.set(5 + sway, oy + 3, 210)
+
+
+def _arch(self, dt, canvas):
+    """Arch spike / A — light climbs the mountain, then holds."""
+    canvas.clear(0)
+    peak, base = 6, 27
+    climb = (0.5 + 0.5 * math.sin(self.t * 0.45)) * (base - peak)
+    for y in range(peak, base + 1):
+        half = int(round((y - peak) * 4.0 / (base - peak)))
+        lit = (base - y) <= climb + 1
+        edge = 220 if lit else 40
+        canvas.blend(4 - half, y, edge)
+        canvas.blend(4 + half, y, edge)
+        if 2 <= half <= 3 and y > peak + 8:
+            inner = half - 2
+            canvas.blend(4 - inner, y, clamp(edge * 0.45))
+            canvas.blend(4 + inner, y, clamp(edge * 0.45))
+    canvas.blend(4, peak, 255)
+
+
+def _mac(self, dt, canvas):
+    canvas.clear(0)
+    oy = 12
+    _stamp(canvas, APPLE, 0, oy)
+    shine = int((self.t * 3.2) % 16) - 2
+    for dy, row in enumerate(APPLE):
+        if abs(dy - shine) > 1:
+            continue
+        for dx, ch in enumerate(row):
+            if ch not in " .":
+                canvas.blend(dx, oy + dy, 255)
 
 
 PAINTS = {
@@ -583,47 +609,46 @@ PAINTS = {
     "spotlights": _spotlights,
     "blackhole": _blackhole,
     "vhstape": _vhstape,
+    "pendulum": _pendulum,
+    "helix": _helix,
+    "scanner": _scanner,
+    "fountain": _fountain,
 }
 
+# Twenty-eight screensaver wells, then four OS marks.
 SPECS = [
-    ("om-screensaver", "Omarchy Screensaver", "Cycles tte-style effects the way Omarchy's idle screensaver does.", _screensaver),
-    ("om-omarchy", "Omarchy", "The word stacked down the well, breathing.", _omarchy_word),
+    ("om-screensaver", "Omarchy Screensaver", "Cycles tte-style effects mixed with a few loop motions, the way Omarchy's idle screensaver does.", _screensaver),
+    ("om-omarchy", "Omarchy", "OMARCHY sideways, first letter at the bottom, reading toward the top.", _omarchy_word),
     ("om-mark", "Omarchy Mark", "A slow ring — the O, not a wallpaper.", _omarchy_mark),
     ("om-beams", "Omarchy Beams", "Scanlines travel the well and light the letters behind them.", _beams),
-    ("om-binarypath", "Omarchy Binary Path", "Bits stream home into the stacked word.", _binarypath),
+    ("om-matrix", "Omarchy Matrix", "Screensaver digital rain on the 9×34 well.", _matrix),
+    ("om-decrypt", "Omarchy Decrypt", "Movie-style scramble that locks onto OMARCHY.", _decrypt),
+    ("om-pour", "Omarchy Pour", "Columns pour in from the top, tte-style.", _pour),
+    ("om-fireworks", "Omarchy Fireworks", "A few sparse sparks climb and bloom — no strobe.", _fireworks),
+    ("om-waves", "Omarchy Waves", "Sine wash behind the stacked word.", _waves),
+    ("om-synthgrid", "Omarchy Synth Grid", "A grid fills block by block, then the word holds.", _synthgrid),
+    ("om-wipe", "Omarchy Wipe", "A downward wipe leaves OMARCHY behind.", _wipe),
+    ("om-rings", "Omarchy Rings", "Concentric rings expand down the well.", _rings),
+    ("om-spotlights", "Omarchy Spotlights", "Two soft spots wander over the glyph.", _spotlights),
     ("om-blackhole", "Omarchy Black Hole", "The well shears around a dark center.", _blackhole),
-    ("om-bouncyballs", "Omarchy Bouncy Balls", "Balls drop, bounce, and settle like tte's bouncyballs.", _bouncyballs),
+    ("om-vhstape", "Omarchy VHS Tape", "Slow tracking roll — not a flicker.", _vhstape),
+    ("om-rain", "Omarchy Rain", "Screensaver rain, sparse enough for the matrix.", _rain),
+    ("om-print", "Omarchy Print", "The word types itself, cell by cell.", _print),
+    ("om-crumble", "Omarchy Crumble", "Letters dust apart, then vacuum back together.", _crumble),
     ("om-bubbles", "Omarchy Bubbles", "Bubbles float up and pop off the top.", _bubbles),
     ("om-burn", "Omarchy Burn", "A slow ember front climbs the well.", _burn),
-    ("om-colorshift", "Omarchy Color Shift", "A greyscale gradient rolling through Omarchy's word.", _colorshift),
-    ("om-crumble", "Omarchy Crumble", "Letters dust apart, then vacuum back together.", _crumble),
-    ("om-decrypt", "Omarchy Decrypt", "Movie-style scramble that locks onto OMARCHY.", _decrypt),
-    ("om-errorcorrect", "Omarchy Error Correct", "Misplaced pixels snap into the branded glyph.", _errorcorrect),
-    ("om-expand", "Omarchy Expand", "A ring grows from the middle of the well.", _expand),
-    ("om-fireworks", "Omarchy Fireworks", "A few sparse sparks climb and bloom — no strobe.", _fireworks),
     ("om-highlight", "Omarchy Highlight", "A specular bar runs over the stacked word.", _highlight),
     ("om-laseretch", "Omarchy Laser Etch", "A beam etches OMARCHY one cell at a time.", _laseretch),
-    ("om-matrix", "Omarchy Matrix", "Screensaver digital rain on the 9×34 well.", _matrix),
-    ("om-middleout", "Omarchy Middle Out", "The word opens from the center line.", _middleout),
-    ("om-orbittingvolley", "Omarchy Orbiting Volley", "Five motes orbit the well's middle.", _orbittingvolley),
-    ("om-overflow", "Omarchy Overflow", "The well fills from the bottom until it spills.", _overflow),
-    ("om-pour", "Omarchy Pour", "Columns pour in from the top, tte-style.", _pour),
-    ("om-print", "Omarchy Print", "The word types itself, cell by cell.", _print),
-    ("om-rain", "Omarchy Rain", "Screensaver rain, sparse enough for the matrix.", _rain),
-    ("om-randomsequence", "Omarchy Random Sequence", "Branded cells appear in a shuffled order.", _randomsequence),
-    ("om-rings", "Omarchy Rings", "Concentric rings expand down the well.", _rings),
-    ("om-scattered", "Omarchy Scattered", "Pixels gather from noise into OMARCHY.", _scattered),
-    ("om-slice", "Omarchy Slice", "Horizontal slices of the word drift out of phase.", _slice),
-    ("om-slide", "Omarchy Slide", "The stacked word slides in from the side.", _slide),
-    ("om-spotlights", "Omarchy Spotlights", "Two soft spots wander over the glyph.", _spotlights),
-    ("om-spray", "Omarchy Spray", "A fountain sprays from the bottom of the well.", _spray),
-    ("om-swarm", "Omarchy Swarm", "A flock of motes hunts a wandering point.", _swarm),
     ("om-sweep", "Omarchy Sweep", "A bar reveals the word, then colors it on the way back.", _sweep),
-    ("om-synthgrid", "Omarchy Synth Grid", "A grid fills block by block, then the word holds.", _synthgrid),
-    ("om-vhstape", "Omarchy VHS Tape", "Slow tracking roll — not a flicker.", _vhstape),
-    ("om-waves", "Omarchy Waves", "Sine wash behind the stacked word.", _waves),
-    ("om-wipe", "Omarchy Wipe", "A downward wipe leaves OMARCHY behind.", _wipe),
-    ("om-slide-up", "Omarchy Slide Up", "The word climbs in from below.", _slide_up),
+    ("om-swarm", "Omarchy Swarm", "A flock of motes hunts a wandering point.", _swarm),
+    ("om-pendulum", "Omarchy Pendulum", "A loop-style bob swings over the sideways word.", _pendulum),
+    ("om-helix", "Omarchy Helix", "A double helix twists through the branded well.", _helix),
+    ("om-scanner", "Omarchy Scanner", "A comet bar sweeps the length of the module.", _scanner),
+    ("om-fountain", "Omarchy Fountain", "Sparks climb from the base and fall back as glitter.", _fountain),
+    ("om-windows", "Windows", "The four-pane flag, breathing pane by pane.", _windows),
+    ("om-linux", "Linux", "Tux on the well, a slow waddle, no strobe.", _linux),
+    ("om-arch", "Arch", "The Arch spike — light climbs the mountain.", _arch),
+    ("om-mac", "Mac", "A bitten apple with a slow shine.", _mac),
 ]
 
 
