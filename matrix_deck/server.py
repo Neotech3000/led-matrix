@@ -122,9 +122,6 @@ class DeckHandler(SimpleHTTPRequestHandler):
         if path == "/api/idle":
             self._json(200, {"ok": True, "idle": self.deck.idle_info()})
             return
-        if path == "/api/mirror":
-            self._json(200, {"ok": True, "mirror": dict(self.deck.mirror)})
-            return
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
@@ -303,14 +300,6 @@ class DeckHandler(SimpleHTTPRequestHandler):
                 self._json(400, {"ok": False, "error": "invalid idle settings"})
                 return
             self._json(200, {"ok": True, "idle": info})
-            return
-        if path == "/api/mirror":
-            side = str(payload.get("side", "left"))
-            if side not in ("left", "right"):
-                self._json(400, {"ok": False, "error": "side must be left or right"})
-                return
-            mirror = self.deck.set_mirror(side, bool(payload.get("on", True)))
-            self._json(200, {"ok": True, "mirror": mirror})
             return
         if path == "/api/quit":
             threading.Thread(target=self._quit, daemon=True).start()

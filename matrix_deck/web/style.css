@@ -45,7 +45,6 @@ button.card-add:focus-visible,
 .selection-done:focus-visible,
 .hint-dismiss:focus-visible,
 .idle-btn:focus-visible,
-.mirror-btn:focus-visible,
 .scene-apply:focus-visible,
 .scene-update:focus-visible,
 .scene-new:focus-visible,
@@ -397,26 +396,6 @@ body.dimmed .bezel { opacity: 0.82; transition: opacity 1000ms ease; }
 }
 .module.focused .keys-hint { opacity: 1; }
 .module-tools { display: inline-flex; align-items: center; gap: 6px; }
-.mirror-btn {
-  appearance: none;
-  width: 28px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.9rem;
-  line-height: 1;
-  cursor: pointer;
-}
-.mirror-btn:hover { border-color: var(--accent-55); color: var(--ink); }
-.mirror-btn.on {
-  border-color: var(--accent-75);
-  color: var(--orange);
-  background: var(--accent-soft);
-}
 
 .drop-overlay {
   position: absolute;

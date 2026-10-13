@@ -27,7 +27,6 @@ def default_settings() -> dict:
     return {
         "idleEnabled": False,
         "idleMinutes": DEFAULT_IDLE_MINUTES,
-        "mirror": {"left": False, "right": False},
     }
 
 
@@ -112,9 +111,6 @@ def normalize_settings(raw) -> dict:
     except (TypeError, ValueError):
         minutes = DEFAULT_IDLE_MINUTES
     out["idleMinutes"] = max(MIN_IDLE_MINUTES, min(MAX_IDLE_MINUTES, minutes))
-    mirror = raw.get("mirror")
-    if isinstance(mirror, dict):
-        out["mirror"] = {"left": bool(mirror.get("left", False)), "right": bool(mirror.get("right", False))}
     return out
 
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LED Matrix</title>
-    <link rel="stylesheet" href="/style.css?v=2.7.0" />
+    <link rel="stylesheet" href="/style.css?v=2.7.1" />
   </head>
   <body>
     <header class="top">
@@ -42,7 +42,7 @@
 
     <div class="workspace">
       <section class="library-col rail-left" aria-label="Library for the left well">
-        <p class="col-label" id="rail-left-label">Left well · click plays here</p>
+        <p class="col-label" id="rail-left-label">Left well · first half · click plays here</p>
         <div class="library" id="library-left"></div>
       </section>
 
@@ -55,7 +55,6 @@
             </div>
             <div class="module-tools">
               <span class="keys-hint" id="left-keys" aria-live="polite">Keys → Left</span>
-              <button type="button" class="mirror-btn" id="left-mirror" data-side="left" aria-pressed="false" title="Mirror the left well horizontally (for a module that faces the other way)" aria-label="Mirror left well">↔</button>
             </div>
           </div>
           <div
@@ -84,7 +83,6 @@
             </div>
             <div class="module-tools">
               <span class="keys-hint" id="right-keys" aria-live="polite">Keys → Right</span>
-              <button type="button" class="mirror-btn" id="right-mirror" data-side="right" aria-pressed="false" title="Mirror the right well horizontally (for a module that faces the other way)" aria-label="Mirror right well">↔</button>
             </div>
           </div>
           <div
@@ -112,7 +110,7 @@
               <input
                 id="search"
                 type="search"
-                placeholder="Search  ( / )"
+                placeholder="Search"
                 autocomplete="off"
                 spellcheck="false"
                 aria-label="Search animations"
@@ -153,8 +151,8 @@
 
         <div class="assign first-run" id="first-run" hidden>
           <p>
-            Both rails show the whole library: the left rail plays on the left well, the right rail on the right.
-            Drag a card onto a well, or use the <strong>L</strong>/<strong>R</strong> badges. Hover a card for a live thumbnail.
+            The library is split across the two rails — first half left, second half right — so each column is half as long.
+            A card plays on its rail's well; drag it onto either well or use the <strong>L</strong>/<strong>R</strong> badges to send it to the other side. Hover a card for a live thumbnail.
             Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once.
             <strong>Save scene</strong> keeps both wells plus brightness and speed for one-click recall, with an optional daily time window.
             Press <strong>?</strong> any time for keyboard shortcuts.
@@ -168,7 +166,7 @@
       </section>
 
       <section class="library-col rail-right" aria-label="Library for the right well">
-        <p class="col-label" id="rail-right-label">Right well · click plays here</p>
+        <p class="col-label" id="rail-right-label">Right well · second half · click plays here</p>
         <div class="library" id="library-right"></div>
       </section>
     </div>
@@ -185,6 +183,6 @@
 
     <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
-    <script src="/app.js?v=2.7.0"></script>
+    <script src="/app.js?v=2.7.1"></script>
   </body>
 </html>

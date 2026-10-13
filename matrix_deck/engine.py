@@ -27,16 +27,6 @@ RAMP_SECONDS = 1.0
 SCHEDULE_CHECK_SECONDS = 5.0
 
 
-def flip_horizontal(pixels) -> bytearray:
-    """Mirror a 9x34 buffer left-to-right, for a module that faces the other way."""
-    out = bytearray(len(pixels))
-    for y in range(HEIGHT):
-        row = y * WIDTH
-        for x in range(WIDTH):
-            out[row + x] = pixels[row + (WIDTH - 1 - x)]
-    return out
-
-
 def schedule_matches(schedule: dict | None, moment: datetime) -> bool:
     """True when the wall-clock moment falls inside the scene's time window."""
     if not schedule:
@@ -80,7 +70,6 @@ class Deck:
     groups: list[dict] = field(default_factory=list)
     scenes: list[dict] = field(default_factory=list)
     active_scene: str | None = None
-    mirror: dict[str, bool] = field(default_factory=lambda: {"left": False, "right": False})
     idle_enabled: bool = False
     idle_minutes: int = DEFAULT_IDLE_MINUTES
     idle_dimmed: bool = False
@@ -287,23 +276,17 @@ class Deck:
         self.touch()
         self.speed = max(0.25, min(2.5, float(value)))
 
-    def _canvas_x(self, side: str, x: int) -> int:
-        """Map a preview x to canvas x. The preview shows the mirrored frame, so mirror the touch too."""
-        if self.mirror.get(side):
-            return WIDTH - 1 - int(x)
-        return int(x)
-
     def click(self, side: str, x: int = 0, y: int = 0, erase: bool = False) -> None:
         self.touch()
         with self._lock:
             anim = self.right_anim if side == "right" else self.left_anim
-            anim.click(self._canvas_x(side, x), y, erase)
+            anim.click(int(x), y, erase)
 
     def stroke(self, side: str, points, erase: bool = False) -> None:
         cleaned = []
         for point in points or ():
             try:
-                cleaned.append((self._canvas_x(side, int(point[0])), int(point[1])))
+                cleaned.append((int(point[0]), int(point[1])))
             except (TypeError, ValueError, IndexError):
                 continue
         if not cleaned:
@@ -339,15 +322,6 @@ class Deck:
                 if value != self._pushed_brightness:
                     self._pushed_brightness = value
                     self._push_brightness(value)
-
-    def set_mirror(self, side: str, on: bool) -> dict:
-        side = "right" if side == "right" else "left"
-        self.ensure_library()
-        self.touch()
-        with self._lock:
-            self.mirror[side] = bool(on)
-        self.persist_library()
-        return dict(self.mirror)
 
     # ----- scenes ----------------------------------------------------------
 
@@ -472,8 +446,6 @@ class Deck:
 
     def _frame(self, side: str) -> bytes:
         canvas = self.right_canvas if side == "right" else self.left_canvas
-        if self.mirror.get(side):
-            return bytes(flip_horizontal(canvas.pixels))
         return bytes(canvas.pixels)
 
     def snapshot(self) -> dict:
@@ -505,7 +477,6 @@ class Deck:
                 ],
                 "scenes": self._scene_payload(),
                 "activeScene": self.active_scene,
-                "mirror": dict(self.mirror),
                 "idle": self.idle_info(),
                 "text": {"left": self.text["left"], "right": self.text["right"]},
                 "version": __version__,
@@ -590,7 +561,6 @@ class Deck:
             cfg = data["settings"]
             self.idle_enabled = bool(cfg["idleEnabled"])
             self.idle_minutes = int(cfg["idleMinutes"])
-            self.mirror = {"left": bool(cfg["mirror"]["left"]), "right": bool(cfg["mirror"]["right"])}
         self._library_loaded = True
 
     def load_library(self) -> dict:
@@ -610,7 +580,6 @@ class Deck:
             "settings": {
                 "idleEnabled": self.idle_enabled,
                 "idleMinutes": self.idle_minutes,
-                "mirror": dict(self.mirror),
             },
         }
 

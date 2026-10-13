@@ -257,7 +257,7 @@ class EngineTests(unittest.TestCase):
                     frame = json.loads(raw)
                     self.assertEqual(frame["scenes"], [])
                     self.assertIn("idle", frame)
-                    self.assertIn("mirror", frame)
+                    self.assertNotIn("mirror", frame)
                 finally:
                     httpd.shutdown()
                     httpd.server_close()
@@ -341,61 +341,61 @@ class EngineTests(unittest.TestCase):
                 self.assertEqual(deck.set_idle(None, 9999)["minutes"], 240)
                 self.assertEqual(deck.set_idle(None, 0)["minutes"], 1)
 
-    def test_mirror_flips_frame_and_touch_coordinates(self):
-        from matrix_deck.engine import flip_horizontal
-
-        row = list(range(9))
-        flipped = flip_horizontal(bytes(row * 34))
-        self.assertEqual(list(flipped[:9]), list(reversed(row)))
-        self.assertEqual(list(flipped[9 * 33 : 9 * 34]), list(reversed(row)))
-        self.assertEqual(flip_horizontal(flip_horizontal(bytes(row * 34))), bytearray(row * 34))
-
+    def test_legacy_mirror_settings_are_ignored(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {"HOME": tmp}):
+                path = Path(tmp) / ".local/share/led-matrix/library.json"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    json.dumps(
+                        {
+                            "favorites": [],
+                            "groups": [],
+                            "scenes": [],
+                            "settings": {
+                                "idleEnabled": False,
+                                "idleMinutes": 10,
+                                "mirror": {"left": True, "right": True},
+                            },
+                        }
+                    ),
+                    encoding="utf-8",
+                )
                 deck = Deck()
-                deck.set_animation("left", "sketch")
-                deck.click("left", 0, 5)
-                deck.left_anim.step(0.05, deck.left_canvas)
-                self.assertEqual(deck.left_canvas.get(0, 5), 255)
-                self.assertEqual(deck.left_canvas.get(8, 5), 0)
-                plain = deck.snapshot()["left"]
-                self.assertEqual(plain[5 * 9 + 0], 255)
-                mirror = deck.set_mirror("left", True)
-                self.assertEqual(mirror, {"left": True, "right": False})
+                deck.load_library()
+                self.assertFalse(hasattr(deck, "mirror"))
                 snap = deck.snapshot()
-                self.assertEqual(snap["left"][5 * 9 + 8], 255)
-                self.assertEqual(snap["left"][5 * 9 + 0], 0)
-                self.assertEqual(snap["mirror"], {"left": True, "right": False})
-                self.assertEqual(list(deck._frame("left")), snap["left"])
-                # Touching the preview at x=8 (where the lit LED now shows) hits canvas x=0.
-                deck.click("left", 8, 5, erase=True)
-                deck.left_anim.step(0.05, deck.left_canvas)
-                self.assertEqual(deck.left_canvas.get(0, 5), 0)
-                deck.stroke("left", [[8, 10], [8, 12]])
-                deck.left_anim.step(0.05, deck.left_canvas)
-                self.assertEqual(deck.left_canvas.get(0, 10), 255)
-                self.assertEqual(deck.left_canvas.get(0, 12), 255)
-                self.assertEqual(deck.left_canvas.get(8, 10), 0)
-                raw = json.loads((Path(tmp) / ".local/share/led-matrix/library.json").read_text(encoding="utf-8"))
-                self.assertEqual(raw["settings"]["mirror"], {"left": True, "right": False})
-                other = Deck()
-                other.load_library()
-                self.assertTrue(other.mirror["left"])
+                self.assertNotIn("mirror", snap)
+                deck.persist_library()
+                saved = json.loads(path.read_text(encoding="utf-8"))
+                self.assertNotIn("mirror", saved.get("settings", {}))
                 httpd, base = _serve(deck)
                 try:
-                    status, data = _post(f"{base}/api/mirror", {"side": "right", "on": True})
-                    self.assertEqual(status, 200)
-                    self.assertEqual(data["mirror"], {"left": True, "right": True})
-                    status, data = _post(f"{base}/api/mirror", {"side": "up", "on": True})
-                    self.assertEqual(status, 400)
                     status, data = _post(f"{base}/api/idle", {"enabled": True, "minutes": 3})
                     self.assertEqual(status, 200)
                     self.assertEqual(data["idle"]["minutes"], 3)
                     status, data = _post(f"{base}/api/idle", {"minutes": "lots"})
                     self.assertEqual(status, 400)
+                    status, data = _post(f"{base}/api/mirror", {"side": "left", "on": True})
+                    self.assertEqual(status, 404)
                 finally:
                     httpd.shutdown()
                     httpd.server_close()
+
+    def test_arrow_keys_reach_tetris_on_the_focused_well(self):
+        deck = Deck()
+        deck.set_animation("left", "tetris")
+        tetris = deck.left_anim
+        start_x = tetris.px
+        deck.key("left", "ArrowLeft")
+        self.assertFalse(tetris.auto)
+        self.assertEqual(tetris.px, start_x - 1)
+        deck.key("left", "ArrowRight")
+        self.assertEqual(tetris.px, start_x)
+        before_y = tetris.py
+        deck.key("left", "ArrowDown")
+        self.assertGreaterEqual(tetris.py, before_y)
+        deck.key("left", "ArrowUp")
 
     def test_can_switch_animations(self):
         deck = Deck(fps=20)
@@ -626,22 +626,26 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.7.0", html)
+        self.assertIn("?v=2.7.1", html)
         self.assertNotIn("?v=2.4.1", html)
         self.assertNotIn("?v=2.5.0", html)
         self.assertNotIn("?v=2.6.0", html)
-        # 2.7.0 UI: scenes row, idle dim controls, per-well mirror buttons.
+        self.assertNotIn("?v=2.7.0", html)
+        # 2.7.0 UI: scenes row and idle dim. Mirror buttons were removed in 2.7.1.
         self.assertIn('id="scenes"', html)
         self.assertIn('id="new-scene"', html)
         self.assertIn('id="idle-btn"', html)
         self.assertIn('id="idle-minutes"', html)
-        self.assertIn('id="left-mirror"', html)
-        self.assertIn('id="right-mirror"', html)
+        self.assertNotIn('id="left-mirror"', html)
+        self.assertNotIn('id="right-mirror"', html)
+        self.assertIn("placeholder=\"Search\"", html)
+        self.assertNotIn("(/)", html)
         # 2.6.0 UI: drop overlays on both bezels; rails are target wells.
         self.assertIn('id="left-drop"', html)
         self.assertIn('id="right-drop"', html)
         self.assertIn("Drop to play on Right", html)
-        self.assertIn("Left well · click plays here", html)
+        self.assertIn("Left well · first half · click plays here", html)
+        self.assertIn("Right well · second half · click plays here", html)
         self.assertNotIn("<h1>", html)
         # 2.5.0 UI: labels, help sheet, toasts, first-run hint, focusable chips.
         self.assertIn('id="brightness-value"', html)
@@ -784,24 +788,30 @@ class EngineTests(unittest.TestCase):
         self.assertIn("function moveGroup(", js)
         self.assertIn("function renameGroup(", js)
         self.assertIn('postJson("/api/library"', js)
-        self.assertIn("setRail(rails.right, items,", js)
-        self.assertNotIn("items.slice(0, mid)", js)
-        # 2.7.0: scenes, idle dimming, mirror.
+        self.assertIn('setRail(rails.right, items.slice(mid), "right", null)', js)
+        self.assertIn("items.slice(0, mid)", js)
+        self.assertIn("items.slice(mid)", js)
+        # 2.7.1: no arrow-key card hopping, no / search shortcut, no mirror.
+        self.assertNotIn("focusNextCard", js)
+        self.assertNotIn("moveCardFocus", js)
+        self.assertNotIn('event.key === "/"', js)
+        self.assertNotIn('["/", "Focus search"]', js)
+        # 2.7.0: scenes and idle dimming. Mirror removed in 2.7.1.
         self.assertIn("/api/scenes", js)
         self.assertIn("/api/scenes/apply", js)
         self.assertIn("/api/scenes/delete", js)
         self.assertIn("/api/idle", js)
-        self.assertIn("/api/mirror", js)
+        self.assertNotIn("/api/mirror", js)
         self.assertIn("function renderScenes(", js)
         self.assertIn("function beginNewScene(", js)
         self.assertIn("function applyIdle(", js)
-        self.assertIn("function applyMirror(", js)
+        self.assertNotIn("function applyMirror(", js)
         self.assertIn("Dimmed · any input wakes", js)
         css = (WEB_ROOT / "style.css").read_text()
         self.assertIn(".scene-chip", css)
         self.assertIn(".scene-composer", css)
         self.assertIn(".idle-btn", css)
-        self.assertIn(".mirror-btn", css)
+        self.assertNotIn(".mirror-btn", css)
         self.assertIn("opacity 1000ms", css)
         self.assertIn("--card-h", css)
         self.assertIn(".library.virtual", css)

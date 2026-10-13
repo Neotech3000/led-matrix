@@ -118,39 +118,43 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 ## Using the app
 
 - Click a well to send keyboard input there.
-- Both rails list the whole library. Left-rail cards run on the left well; right-rail cards run on the right well. Drag a card onto a well to play it there.
+- The catalog is **split** across the two rails — first half on the left, second half on the right — so each column is shorter to scroll. A card plays on its rail's well. Drag it onto either well, or use the **L** / **R** badges, to send it to the other side.
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
 - **Search** and the type chips sit **under the two live wells**, not in the top bar. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
 - Compact type chips **All** **Favorites** **Game** **Loop** **Draw** **Utility** **Weather** **Music** **Puzzle** **Status** **Ambient** filter the library; fuzzy search still applies on top of the selected type. They wrap under the wells. On a phone they stack under the bezels. **Favorites** is a filter, not a catalog kind.
 - **Hearts** on each card save a global favorite. The **Favorites** chip shows only those.
 - **Groups:** click **New group**, name it (for example Desk mix), and it appears in the bubble row immediately — no restart. Each bubble has two targets: the **name** opens/filters that group (members only; an empty group still shows the full catalog). The **+** enters selection mode without opening it — the catalog stays on All/type/search so you can tap many cards (or card + / heart) to add. Banner: “Adding to Desk mix — tap cards to add. Esc or Done to exit.” Click **+** again, **Done**, or Escape to leave; click the name while adding to review the group. Each bubble has its own **Random** that cycles only that group (10–30s, both wells, skip sketch/sand). Top-bar **Random** still walks the whole catalog. Group random and catalog Random are mutually exclusive; assigning a card by hand turns that shuffle off.
-- Favorites, groups, scenes, and settings (idle dim, mirror) are saved in the app data folder:
+- Favorites, groups, scenes, and settings (idle dim) are saved in the app data folder:
   - Linux: `~/.local/share/led-matrix/library.json`
   - macOS: `~/Library/Application Support/led-matrix/library.json`
   - Windows: `%APPDATA%\led-matrix\library.json`
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch, falling sand, and every other draw mode stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
-- The live preview stays in the **middle**; the full catalog sits on both sides, each rail aimed at its own well.
+- The live preview stays in the **middle**; the catalog is split left/right of it.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
+
+### What's new in 2.7.1
+
+- Arrow keys always go to the focused well's game (Tetris, Snake, Pong, …). Card hopping with ↑/↓ is gone. The search box no longer shows a `(/)` hint, and `/` is not a shortcut.
+- The catalog is split across the two rails again (first half left, second half right) so each side is shorter to scroll.
+- The per-well **↔** flip option is removed.
 
 ### What's new in 2.7.0
 
 - **Scenes.** **Save scene** stores both wells plus brightness and speed under a name; the chip recalls it in one click, **↻** overwrites it with what is playing now, **×** asks Yes / No inline. A scene can carry a daily time window (for example 22:00–07:00, wrap-around is fine) and the app applies it itself on the wall clock, once per window, even with the browser closed. `/api/scenes` (GET/POST), `/api/scenes/delete`, `/api/scenes/apply`.
 - **Idle dim.** Turn on **Idle dim** in the top bar and pick the minutes. After that long with no input (clicks, keys, strokes, sliders, scene changes — frame polling does not count) both wells fade to about 8 % over one second; any input ramps them back over one second. No steps, no flashes. The brightness label shows `180 → 14` while dimmed. Persisted in `library.json` under `settings`.
-- **Mirror a well.** The **↔** button on each module flips that well horizontally before the frame goes to the module — for a module installed facing the other way. The preview flips with it and touches on the preview land where you see them. Persisted per well.
 
 ### What's new in 2.6.0
 
-- **Both rails show the whole library.** The left rail plays on the left well, the right rail on the right — no more guessing which half a loop landed in. Search ranks both rails the same way.
 - **Drag a card onto a well.** Real HTML5 drag-and-drop: the bezel lights up with “Drop to play on Right” while you hover. The **L**/**R** badges and plain clicks still work for touch and keyboards.
 - **Live thumbnails.** The two playing cards show a tiny live 9×34 copy of the well. Hover (or focus) any other card to see a few cached frames from `/api/preview?id=…`; previews are rendered once on the server and cached.
-- **The library is virtualized.** Only the cards in view (plus a small overscan) exist in the DOM, so 872 × 2 cards scroll smoothly, and favorites / assign / focus changes patch individual cards instead of rebuilding the list. ↑/↓ moves between cards.
+- **The library is virtualized.** Only the cards in view (plus a small overscan) exist in the DOM, so favorites / assign / focus changes patch individual cards instead of rebuilding the list.
 - **Groups reorder and rename.** Drag a bubble to reorder (or Alt+← / Alt+→ on its name), click ✎ or double-click the name to rename inline. Both persist through the library file.
 
 ### What's new in 2.5.0
 
 - The card that is playing gets an accent left border and a **Playing · Left / Right** caption; the well that receives keyboard input glows and shows **Keys → Left** (or Right) in its header. Press **1** / **2** to move keys between wells.
-- Press **?** (or the `?` button in the top bar) for a themed keyboard-shortcuts sheet: global keys, what each well is playing and how to drive it, plus every game and utility hint. **Esc** closes it. **/** jumps to search. **F** favorites whatever the focused well is playing.
+- Press **?** (or the `?` button in the top bar) for a themed keyboard-shortcuts sheet: global keys, what each well is playing and how to drive it, plus every game and utility hint. **Esc** closes it. **F** favorites whatever the focused well is playing.
 - Brightness and Speed show their value (`180`, `1.0×`); double-click a slider to reset it.
 - Short toasts at the bottom confirm actions (“Clock → Left”, “Added to Desk mix”) and surface save errors instead of swallowing them. Going offline shows “Offline — retrying”.
 - Deleting a group asks **Yes / No** inside the bubble instead of a browser dialog.

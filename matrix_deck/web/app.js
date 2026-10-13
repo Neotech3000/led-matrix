@@ -68,7 +68,6 @@ const UTILITY_KEYS = {
 };
 
 const GLOBAL_KEYS = [
-  ["/", "Focus search"],
   ["1", "Send keys to the left well"],
   ["2", "Send keys to the right well"],
   ["F", "Favorite or unfavorite what the focused well is playing"],
@@ -76,8 +75,11 @@ const GLOBAL_KEYS = [
   ["Esc", "Close this sheet, leave selection mode, or clear search"],
   ["Tab / Enter", "In search: Tab fills the best match, Enter plays it on the focused well"],
   ["Enter / Space", "On a card: play it on the focused well"],
-  ["Space · arrows · WASD", "Go to the focused well (games, timers, drawing)"],
+  ["Space · arrows · WASD", "Always go to the focused well (games, timers, drawing) — even while a card or button has focus"],
 ];
+
+// Keys a focused button or card keeps for itself. Everything else goes to the focused well.
+const CONTROL_KEYS = new Set(["Enter", "Space", "NumpadEnter"]);
 
 const leftCanvas = document.getElementById("left");
 const rightCanvas = document.getElementById("right");
@@ -120,14 +122,12 @@ const rightMarquee = document.getElementById("right-marquee");
 const scenesEl = document.getElementById("scenes");
 const idleBtn = document.getElementById("idle-btn");
 const idleMinutesEl = document.getElementById("idle-minutes");
-const mirrorBtns = { left: document.getElementById("left-mirror"), right: document.getElementById("right-mirror") };
 
 let scenes = [];
 let activeScene = null;
 let scenesStatus = "loading";
 let confirmDeleteScene = "";
 let lastSceneUiKey = "";
-let mirrorState = { left: false, right: false };
 let idleState = { enabled: false, minutes: 10, dimmed: false, effective: 180 };
 const narrowQuery = window.matchMedia("(max-width: 980px)");
 
@@ -390,11 +390,23 @@ function setFocus(side, { rebuild = true } = {}) {
   }
 }
 
+// Move DOM focus onto a well's bezel so a card or button that was just clicked
+// stops being the key target; the game on that well gets the keyboard.
+function focusWell(side) {
+  const bezel = side === "right" ? rightBezel : leftBezel;
+  if (!bezel || document.activeElement === bezel) return;
+  try {
+    bezel.focus({ preventScroll: true });
+  } catch {
+    bezel.focus();
+  }
+}
+
 function updateRailLabels() {
   if (railLeftLabel) {
-    railLeftLabel.textContent = narrow ? `Library · tap sends to ${sideLabel(focus)}` : "Left well · click plays here";
+    railLeftLabel.textContent = narrow ? `Library · tap sends to ${sideLabel(focus)}` : "Left well · first half · click plays here";
   }
-  if (railRightLabel) railRightLabel.textContent = "Right well · click plays here";
+  if (railRightLabel) railRightLabel.textContent = "Right well · second half · click plays here";
   if (railRight) railRight.hidden = narrow;
 }
 
@@ -639,7 +651,7 @@ let renamingGroup = "";
 let windowRaf = 0;
 
 function makeRail(root, side) {
-  return { root, side, items: [], clickSide: side, searching: false, topId: null, cards: new Map(), start: -1, end: -1 };
+  return { root, side, items: [], clickSide: side, topId: null, cards: new Map(), start: -1, end: -1 };
 }
 
 function cardHeight() {
@@ -656,15 +668,19 @@ function renderLibrary() {
   if (!catalog.length) return;
   const q = searchQuery.trim();
   const items = q ? rankedCatalog().map((row) => row.item) : visibleCatalog();
+  const topId = q && items[0] ? items[0].id : null;
   if (narrow) {
     // One merged list under the wells; cards go to the focused well, L/R badges pick a side.
-    setRail(rails.left, items, null, !!q);
-    setRail(rails.right, [], "right", false);
+    setRail(rails.left, items, null, topId);
+    setRail(rails.right, [], "right", null);
     return;
   }
-  // Both rails carry the whole filtered catalog. The rail is the target well.
-  setRail(rails.left, items, "left", !!q);
-  setRail(rails.right, items, "right", !!q);
+  // The filtered catalog is split across the two rails — first half left, second half
+  // right — so each column is half as long to scroll. The rail is still the target well;
+  // the L/R badges send a card to the other side.
+  const mid = Math.ceil(items.length / 2);
+  setRail(rails.left, items.slice(0, mid), "left", topId);
+  setRail(rails.right, items.slice(mid), "right", null);
 }
 
 function playingCaption(leftOn, rightOn) {
@@ -674,11 +690,10 @@ function playingCaption(leftOn, rightOn) {
   return "";
 }
 
-function setRail(rail, items, clickSide, searching) {
+function setRail(rail, items, clickSide, topId) {
   rail.items = items;
   rail.clickSide = clickSide;
-  rail.searching = searching;
-  rail.topId = searching && items[0] ? items[0].id : null;
+  rail.topId = topId && items.some((item) => item.id === topId) ? topId : null;
   const root = rail.root;
   const empty = root.querySelector(".empty-search");
   if (!items.length) {
@@ -687,13 +702,15 @@ function setRail(rail, items, clickSide, searching) {
     rail.start = rail.end = -1;
     root.style.height = "";
     root.classList.remove("virtual");
+    // The right rail is simply empty when one match lands on the left; say so quietly.
+    const message = rail.side === "right" && !narrow && rails.left.items.length ? "" : emptyLibraryMessage();
     if (!empty) {
-      const message = document.createElement("p");
-      message.className = "empty-search";
-      message.textContent = emptyLibraryMessage();
-      root.appendChild(message);
+      const note = document.createElement("p");
+      note.className = "empty-search";
+      note.textContent = message;
+      root.appendChild(note);
     } else {
-      empty.textContent = emptyLibraryMessage();
+      empty.textContent = message;
     }
     return;
   }
@@ -777,24 +794,6 @@ function ensureCard(rail, item, index, row) {
   entry.el.dataset.index = String(index);
   const top = `${index * row}px`;
   if (entry.el.style.top !== top) entry.el.style.top = top;
-}
-
-function focusCard(rail, index) {
-  const items = rail.items;
-  if (!items.length) return;
-  const clamped = Math.max(0, Math.min(items.length - 1, index));
-  const row = rowHeight();
-  const { from, to, container } = railViewport(rail);
-  const cardTop = clamped * row;
-  const cardBottom = cardTop + row;
-  if (cardTop < from || cardBottom > to) {
-    const delta = cardTop < from ? cardTop - from : cardBottom - to;
-    if (container) container.scrollTop += delta;
-    else window.scrollBy(0, delta);
-    renderWindow(rail, true);
-  }
-  const entry = rail.cards.get(items[clamped].id);
-  if (entry) entry.el.focus({ preventScroll: true });
 }
 
 function drawThumb(canvas, pixels) {
@@ -985,6 +984,8 @@ function buildCard(rail, item) {
     badge.addEventListener("click", (event) => {
       event.stopPropagation();
       assign(side, item.id);
+      // A mouse click leaves the keyboard on the well it just filled, not on the badge.
+      if (event.detail > 0) focusWell(side);
     });
     badges.appendChild(badge);
   }
@@ -996,22 +997,22 @@ function buildCard(rail, item) {
       const group = selectionGroupRecord();
       const inGroup = groupIds(group).includes(item.id);
       toggleGroupItem(item, !inGroup);
-      return;
+      return false;
     }
     assign(clickSide || focus, item.id);
+    return true;
   };
-  card.addEventListener("click", activate);
+  card.addEventListener("click", (event) => {
+    const played = activate();
+    // Pointer clicks hand the keyboard to the well so arrows reach the game at once.
+    // Keyboard users (Enter/Space) keep their place in the rail.
+    if (played && event.detail > 0) focusWell(clickSide || focus);
+  });
   card.addEventListener("keydown", (event) => {
     if (event.target !== card) return;
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       activate();
-      return;
-    }
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const index = Number(card.dataset.index || 0);
-      focusCard(rail, index + (event.key === "ArrowDown" ? 1 : -1));
     }
   });
   card.addEventListener("pointerenter", () => startHoverThumb(card, item));
@@ -1067,7 +1068,10 @@ function bindDropTargets() {
       clearDropTargets();
       dragKind = "";
       dragId = "";
-      if (id) assign(side, id);
+      if (id) {
+        assign(side, id);
+        focusWell(side);
+      }
     });
   });
 }
@@ -1852,17 +1856,6 @@ function applyIdle(info) {
   document.body.classList.toggle("dimmed", idleState.dimmed);
 }
 
-function applyMirror(mirror) {
-  if (!mirror || typeof mirror !== "object") return;
-  mirrorState = { left: !!mirror.left, right: !!mirror.right };
-  for (const side of ["left", "right"]) {
-    const btn = mirrorBtns[side];
-    if (!btn) continue;
-    btn.classList.toggle("on", mirrorState[side]);
-    btn.setAttribute("aria-pressed", mirrorState[side] ? "true" : "false");
-  }
-}
-
 function beginNewGroup() {
   const row = document.getElementById("group-row") || (groupsEl && groupsEl.querySelector(".group-row"));
   if (!row || row.querySelector(".group-composer")) return;
@@ -2126,6 +2119,8 @@ function isHeld(event) {
 
 function startDraw(side, event) {
   setFocus(side, { rebuild: false });
+  // pointerdown is prevented below, so the browser will not move focus itself.
+  focusWell(side);
   const canvas = side === "right" ? rightCanvas : leftCanvas;
   const cell = ledFromEvent(canvas, event);
   const erase = event.shiftKey || event.button === 2 || (event.buttons & 2) !== 0;
@@ -2276,7 +2271,6 @@ async function tick() {
     if ("randomGroup" in data) randomGroup = data.randomGroup || null;
     if (Array.isArray(data.scenes)) applyScenes(data);
     applyIdle(data.idle);
-    applyMirror(data.mirror);
     if (randomBtn) {
       const globalOn = !!data.random && !data.randomGroup;
       randomBtn.classList.toggle("on", globalOn);
@@ -2336,7 +2330,7 @@ function renderHelp() {
 
   rows.push('<section class="help-section"><h3>How it works</h3>');
   rows.push(
-    "<p>Both rails show the whole library: the left rail plays on the left well, the right rail on the right. Drag a card onto a well, or use the <strong>L</strong>/<strong>R</strong> badges. Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once. <strong>Save scene</strong> keeps both wells plus brightness and speed, with an optional daily window. <strong>Idle dim</strong> fades both wells after a quiet spell and any input brings them back. <strong>↔</strong> mirrors a well for a module that faces the other way. Double-click a slider to reset it.</p>"
+    "<p>The library is split across the two rails — first half on the left, second half on the right — so each column is half as long. A card plays on the well its rail belongs to; drag it onto either well or use the <strong>L</strong>/<strong>R</strong> badges to send it to the other side. Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once. <strong>Save scene</strong> keeps both wells plus brightness and speed, with an optional daily window. <strong>Idle dim</strong> fades both wells after a quiet spell and any input brings them back. Double-click a slider to reset it.</p>"
   );
   rows.push("</section>");
 
@@ -2420,26 +2414,45 @@ document.addEventListener("mouseup", onDocPointerUp, true);
 leftBezel.addEventListener("contextmenu", (event) => event.preventDefault());
 rightBezel.addEventListener("contextmenu", (event) => event.preventDefault());
 
+// Keys a game or utility on the focused well consumes. Arrows and Space are
+// prevented so the page never scrolls under a game; letters pass through to
+// the server but keep their default so browser shortcuts still work.
+function isGameKey(code) {
+  return code === "Space" || code.startsWith("Arrow") || code === "Escape" || code === "Delete" || code === "Backspace";
+}
+
+// One global router. Order matters: text fields keep everything; the help sheet
+// only owns Esc / ?; a focused button or card only owns Enter and Space; the
+// handful of app shortcuts (1 2 F ?) never use a key a game needs — Simon's
+// digits are forwarded — and everything else goes to the focused well.
 window.addEventListener("keydown", (event) => {
   const target = event.target;
-  const inField = target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  const inField = target && (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable);
+  if (inField) {
+    return;
+  }
+  const modified = event.ctrlKey || event.metaKey || event.altKey;
   if (helpOpen()) {
     if (event.code === "Escape" || event.key === "?") {
       event.preventDefault();
       closeHelp();
+      return;
     }
+    // The sheet lists the keys; let people try them on the well while it is open.
+    if (modified || CONTROL_KEYS.has(event.code) || IGNORE_KEYS.has(event.code)) return;
+    if (isGameKey(event.code)) event.preventDefault();
+    sendKey(focus, event.code);
     return;
   }
-  if (inField) {
-    return;
-  }
-  if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+  if (event.key === "?" && !modified) {
     event.preventDefault();
     openHelp();
     return;
   }
-  // Buttons, cards, and other controls own Enter/Space/arrow keys while focused.
-  if (target && target.closest && target.closest(".card, button, a, [role='button'], .group-bubble, .sheet-scrim")) {
+  const onControl = !!(target && target.closest && target.closest(".card, button, a, [role='button'], .group-bubble, .sheet-scrim"));
+  // A focused button or card keeps Enter / Space (activation) and any modifier
+  // combo (Alt+←/→ reorders groups). Arrows, WASD and the rest still reach the game.
+  if (onControl && (CONTROL_KEYS.has(event.code) || modified)) {
     return;
   }
   if (event.code === "Escape" && selectionGroup) {
@@ -2461,36 +2474,25 @@ window.addEventListener("keydown", (event) => {
     maybeRenderScenes(true);
     return;
   }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey) {
-    if (event.key === "/") {
-      event.preventDefault();
-      searchEl.focus();
-      searchEl.select();
-      return;
-    }
-    const digitFocus = (event.code === "Digit1" || event.code === "Digit2") && currentAnim(focus) !== "simon";
-    if (digitFocus) {
-      event.preventDefault();
-      setFocus(event.code === "Digit1" ? "left" : "right");
-      toast(`Keys → ${sideLabel(focus)}`);
-      return;
-    }
-    if (event.code === "KeyF" && !event.shiftKey) {
-      event.preventDefault();
-      favoritePlaying();
-      return;
-    }
+  if (modified) {
+    // Ctrl/Alt/Meta combos belong to the browser (reload, tabs, menus); never a game key.
+    return;
+  }
+  // 1 / 2 pick the key target — unless the focused well is Simon, which plays on digits.
+  const digitFocus = (event.code === "Digit1" || event.code === "Digit2") && currentAnim(focus) !== "simon";
+  if (digitFocus) {
+    event.preventDefault();
+    setFocus(event.code === "Digit1" ? "left" : "right");
+    toast(`Keys → ${sideLabel(focus)}`);
+    return;
+  }
+  if (event.code === "KeyF" && !event.shiftKey) {
+    event.preventDefault();
+    favoritePlaying();
+    return;
   }
   if (IGNORE_KEYS.has(event.code)) return;
-  if (
-    event.code === "Space" ||
-    event.code.startsWith("Arrow") ||
-    event.code === "Escape" ||
-    event.code === "Delete" ||
-    event.code === "Backspace"
-  ) {
-    event.preventDefault();
-  }
+  if (isGameKey(event.code)) event.preventDefault();
   sendKey(focus, event.code);
 });
 
@@ -2557,19 +2559,6 @@ if (idleMinutesEl) {
     }
   });
 }
-for (const side of ["left", "right"]) {
-  const btn = mirrorBtns[side];
-  if (!btn) continue;
-  btn.addEventListener("click", async () => {
-    const on = !mirrorState[side];
-    const data = await postJson("/api/mirror", { side, on });
-    if (data && data.mirror) {
-      applyMirror(data.mirror);
-      toast(on ? `${sideLabel(side)} well mirrored` : `${sideLabel(side)} well normal`);
-    }
-  });
-}
-
 if (helpBtn) helpBtn.addEventListener("click", toggleHelp);
 if (helpClose) helpClose.addEventListener("click", closeHelp);
 if (helpSheet) {
