@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass, field
 
 from matrix_deck import __version__
-from matrix_deck.anim import Animation, animation_order, catalog_meta, create_animation
+from matrix_deck.anim import Animation, animation_order, catalog_revision, create_animation
 from matrix_deck.canvas import Canvas
 from matrix_deck.hardware import LedMatrix
 from matrix_deck.library import load as load_library_file
@@ -224,7 +224,7 @@ class Deck:
                 "right": self.right_canvas.snapshot(),
                 "left_anim": self.left_id,
                 "right_anim": self.right_id,
-                "catalog": catalog_meta(),
+                "catalogRev": catalog_revision(),
                 "info": {"left": left_info, "right": right_info},
                 "score": score_info.get("score", 0),
                 "best": score_info.get("best", 0),

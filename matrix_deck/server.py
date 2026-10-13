@@ -10,7 +10,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from matrix_deck import __version__
-from matrix_deck.anim import catalog_meta
+from matrix_deck.anim import catalog_meta, catalog_revision
 from matrix_deck.engine import Deck
 from matrix_deck.theme import current_theme, theme_revision
 
@@ -43,10 +43,18 @@ class DeckHandler(SimpleHTTPRequestHandler):
             self._json(200, snap)
             return
         if path == "/api/animations":
-            self._json(200, {"animations": catalog_meta()})
+            self._json(200, {"animations": catalog_meta(), "rev": catalog_revision()})
             return
         if path == "/api/health":
-            self._json(200, {"ok": True, "version": __version__, "animations": len(catalog_meta())})
+            self._json(
+                200,
+                {
+                    "ok": True,
+                    "version": __version__,
+                    "animations": len(catalog_meta()),
+                    "catalogRev": catalog_revision(),
+                },
+            )
             return
         if path == "/api/theme":
             self._json(200, current_theme())

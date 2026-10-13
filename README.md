@@ -133,6 +133,18 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - The live preview stays in the **middle**; half the catalog is on the left, the rest on the right.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
 
+### What's new in 2.5.0
+
+- The card that is playing gets an accent left border and a **Playing · Left / Right** caption; the well that receives keyboard input glows and shows **Keys → Left** (or Right) in its header. Press **1** / **2** to move keys between wells.
+- Press **?** (or the `?` button in the top bar) for a themed keyboard-shortcuts sheet: global keys, what each well is playing and how to drive it, plus every game and utility hint. **Esc** closes it. **/** jumps to search. **F** favorites whatever the focused well is playing.
+- Brightness and Speed show their value (`180`, `1.0×`); double-click a slider to reset it.
+- Short toasts at the bottom confirm actions (“Clock → Left”, “Added to Desk mix”) and surface save errors instead of swallowing them. Going offline shows “Offline — retrying”.
+- Deleting a group asks **Yes / No** inside the bubble instead of a browser dialog.
+- The long instructions paragraph is now a one-time hint with a **Got it** button; the `?` sheet keeps the same text.
+- Narrow windows (< 980px) put the two wells first and merge the library into one list; cards go to the focused well and the **L**/**R** badges still pick a side.
+- Keyboard and screen-reader friendly: visible focus rings on cards, chips, hearts, and groups; cards respond to Enter / Space; well names and HUDs announce politely; `prefers-reduced-motion` turns off hover transitions.
+- `/api/frame` no longer carries the 872-item catalog on every 50 ms poll — only a `catalogRev`. The UI loads `/api/animations` once and refetches when the revision changes, so each frame is a few KB instead of ~100 KB.
+
 ### Games, Sketch, Marquee, Utilities
 
 | Module | How to play |

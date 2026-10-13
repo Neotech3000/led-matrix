@@ -1,6 +1,9 @@
 const WIDTH = 9;
 const HEIGHT = 34;
 const PIXELS = WIDTH * HEIGHT;
+const DEFAULT_BRIGHTNESS = 180;
+const DEFAULT_SPEED = 100;
+const HINT_KEY = "ledmatrix.firstRunHint.v1";
 const IGNORE_KEYS = new Set([
   "ShiftLeft",
   "ShiftRight",
@@ -16,6 +19,66 @@ const IGNORE_KEYS = new Set([
   "ScrollLock",
 ]);
 
+const GAME_HINTS = {
+  flappy: "click, space, or ↑ to flap",
+  snake: "tap a side of the well, or arrows / WASD",
+  pong: "you are the bright bottom paddle · drag or ← →",
+  breakout: "click, drag, or arrows",
+  dodge: "click, drag, or arrows",
+  tetris: "arrows or WASD · live score at the top",
+  invaders: "← → move · space shoots",
+  dino: "click, Space, or ↑ to jump",
+  frogger: "tap or ↑ hop · ← → dodge traffic",
+  asteroids: "← → rotate · ↑ thrust · space shoot",
+  centipede: "drag or A/D · space / click to shoot",
+  "space-shooter": "← → or drag · space to fire",
+  "brick-stack": "click or space to drop the bar",
+  catcher: "drag or ← → to catch falling bits",
+  whack: "tap bright moles before they hide",
+  slither: "tap a side or arrows · wrap, rocks kill",
+  racetrack: "drag or ← → and stay on the road",
+  jumper: "space / click to hop · ← → drift",
+  sokoban: "arrows push the crate onto the goal",
+  minesweeper: "click reveal · shift-click flag",
+  memory: "click a card, then its matching glyph",
+  "lights-out": "click a cell to toggle neighbors",
+  2048: "arrows or swipe to slide tiles",
+  connect4: "click a column or ← → then space",
+  simon: "click the quadrant that just lit · Q W A S or 1–4",
+  rhythm: "hit notes on the line · space / click lane",
+  cannons: "tap to burst incoming missiles",
+  "pinball-game": "drag or space to kick the flipper",
+};
+
+const UTILITY_KEYS = {
+  timer: "click/space start-pause · ↑↓ or +/− add 30s · C/R reset to 60s",
+  pomodoro: "click/space start-pause · C/R reset · 25 then 5",
+  stopwatch: "click/space start-pause · C/R zero",
+  "tap-tempo": "tap or space · C resets",
+  dice: "click or space to roll",
+  "coin-flip": "click or space to toss",
+  progress: "click +5 · ↑↓ · C zeros",
+  "chess-clock": "click/space punch · C/R reset",
+  "water-reminder": "click logs a sip · ↑↓ interval",
+  "focus-bar": "click start · ↑↓ length · C/R reset",
+  life: "drag paints · Shift-drag erases · R reseeds · P pauses",
+  sketch: "drag draws one LED at a time · Shift-drag erases · C clears",
+  sand: "drag pours sand · Shift-drag erases · C clears",
+  marquee: "type in the box under the well",
+};
+
+const GLOBAL_KEYS = [
+  ["/", "Focus search"],
+  ["1", "Send keys to the left well"],
+  ["2", "Send keys to the right well"],
+  ["F", "Favorite or unfavorite what the focused well is playing"],
+  ["?", "Open or close this sheet"],
+  ["Esc", "Close this sheet, leave selection mode, or clear search"],
+  ["Tab / Enter", "In search: Tab fills the best match, Enter plays it on the focused well"],
+  ["Enter / Space", "On a card: play it on the focused well"],
+  ["Space · arrows · WASD", "Go to the focused well (games, timers, drawing)"],
+];
+
 const leftCanvas = document.getElementById("left");
 const rightCanvas = document.getElementById("right");
 const leftBezel = document.getElementById("left-bezel");
@@ -30,7 +93,16 @@ const leftHud = document.getElementById("left-hud");
 const rightHud = document.getElementById("right-hud");
 const brightnessEl = document.getElementById("brightness");
 const speedEl = document.getElementById("speed");
+const brightnessValue = document.getElementById("brightness-value");
+const speedValue = document.getElementById("speed-value");
 const randomBtn = document.getElementById("random-btn");
+const helpBtn = document.getElementById("help-btn");
+const helpSheet = document.getElementById("help-sheet");
+const helpBody = document.getElementById("help-body");
+const helpClose = document.getElementById("help-close");
+const firstRun = document.getElementById("first-run");
+const hintDismiss = document.getElementById("hint-dismiss");
+const toastsEl = document.getElementById("toasts");
 const searchEl = document.getElementById("search");
 const searchGhost = document.getElementById("search-ghost");
 const searchFill = document.getElementById("search-fill");
@@ -38,18 +110,25 @@ const typeFilters = document.getElementById("type-filters");
 const groupsEl = document.getElementById("groups");
 const libraryLeft = document.getElementById("library-left");
 const libraryRight = document.getElementById("library-right");
+const railLeftLabel = document.getElementById("rail-left-label");
+const railRightLabel = document.getElementById("rail-right-label");
+const railRight = document.querySelector(".rail-right");
 const leftText = document.getElementById("left-text");
 const rightText = document.getElementById("right-text");
 const leftMarquee = document.getElementById("left-marquee");
 const rightMarquee = document.getElementById("right-marquee");
+const narrowQuery = window.matchMedia("(max-width: 980px)");
 
 let catalog = [];
+let catalogRev = "";
+let catalogLoading = null;
 let searchQuery = "";
 let kindFilter = "";
 let favorites = new Set();
 let groups = [];
 let activeGroup = "";
 let selectionGroup = "";
+let confirmDeleteGroup = "";
 let groupsStatus = "loading";
 let randomGroup = null;
 let lastGroupUiKey = "";
@@ -57,6 +136,9 @@ let focus = "left";
 let drawing = null;
 let inputQueue = Promise.resolve();
 let lastLibKey = "";
+let narrow = narrowQuery.matches;
+let offline = false;
+let lastReturnFocus = null;
 const pendingAnim = { left: null, right: null };
 let state = {
   left_anim: "flappy",
@@ -95,6 +177,9 @@ function applyTheme(data) {
   }
   if (colors.accent) {
     root.style.setProperty("--orange", colors.accent);
+  }
+  if (typeof colors.success === "string" && colors.success) {
+    root.style.setProperty("--success", colors.success);
   }
   // Theme wallpaper / background never paints the page. --bg stays black.
   root.style.setProperty("--bg", "#000");
@@ -174,52 +259,66 @@ function pill(el, side, value) {
   el.textContent = `${side} · ${short}`;
 }
 
+function catalogItem(id) {
+  return catalog.find((c) => c.id === id) || null;
+}
+
+function animName(id) {
+  const item = catalogItem(id);
+  return item ? item.name : String(id || "");
+}
+
+function sideLabel(side) {
+  return side === "right" ? "Right" : "Left";
+}
+
+function utilityHint(id, info) {
+  const UTILITY_HINTS = {
+    timer: `${info.running ? "RUN" : info.done ? "DONE" : "PAUSE"} ${info.remaining || "01:00"} · ${UTILITY_KEYS.timer}`,
+    pomodoro: `${(info.phase || "work").toUpperCase()} ${info.remaining || ""} · ${UTILITY_KEYS.pomodoro}`,
+    stopwatch: `${info.running ? "RUN" : "PAUSE"} ${info.elapsed || "00:00"} · ${UTILITY_KEYS.stopwatch}`,
+    utc: `UTC ${info.time || ""} · same stacked digits as Clock`,
+    date: `${info.weekday || ""} ${info.date || ""}`,
+    "week-number": `ISO week ${info.week ?? ""} · ${info.year ?? ""}`,
+    "fuzzy-clock": info.words ? `${info.words} · ${info.time || ""}` : "Time in words, nearest five minutes",
+    "binary-clock": `Binary ${info.time || ""} · H M S as bit columns`,
+    "seconds-bar": `Second ${info.second ?? ""} · column fills through the minute`,
+    alarm: `${info.time || ""} · lights up at :00 of each minute`,
+    "tap-tempo": `${info.bpm || 0} BPM · ${UTILITY_KEYS["tap-tempo"]}`,
+    "battery-bar": `${info.percent ?? "?"} percent${info.live ? "" : " (simulated)"}`,
+    "cpu-pulse": `Load ${info.load ?? "sim"} · nine bars`,
+    "moon-phase": `${info.phase || ""} · real synodic phase`,
+    dice: `Rolled ${info.value ?? 6} · ${UTILITY_KEYS.dice}`,
+    "coin-flip": `${info.side || "heads"} · ${UTILITY_KEYS["coin-flip"]}`,
+    progress: `${info.percent ?? 0} percent · ${UTILITY_KEYS.progress}`,
+    "chess-clock": `${info.white || "05:00"} / ${info.black || "05:00"} · ${info.active || "white"} · ${UTILITY_KEYS["chess-clock"]}`,
+    "breath-pacer": `${info.phase || "IN"} · box breathing 4-4-4-4 on the wall clock`,
+    "water-reminder": info.due ? "SIP · click when you drank" : `${info.remaining || ""} until a sip · ${UTILITY_KEYS["water-reminder"]}`,
+    "focus-bar": `${info.running ? "RUN" : "PAUSE"} ${info.remaining || ""} of ${info.duration_min ?? 50} min · ${UTILITY_KEYS["focus-bar"]}`,
+  };
+  return UTILITY_HINTS[id] || "";
+}
+
 function hudText(side, data) {
   const id = data[`${side}_anim`];
   const info = (data.info && data.info[side]) || {};
-  const item = catalog.find((c) => c.id === id);
+  const item = catalogItem(id);
   if (id === "flappy") {
     const pilot = info.alive ? (info.auto ? "AUTO" : "YOU") : "CRASH";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, space, or ↑ to flap`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · ${GAME_HINTS.flappy}`;
   }
   if (id === "snake") {
     const pilot = info.alive ? (info.auto ? "AUTO until you steer" : "YOU") : "DEAD";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · tap a side of the well, or arrows / WASD`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · ${GAME_HINTS.snake}`;
   }
   if (id === "pong") {
     const pilot = info.auto ? "AUTO" : "YOU";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · you are the bright bottom paddle · drag or ← →`;
-  }
-  if (id === "pong" || id === "breakout" || id === "dodge" || id === "tetris" || id === "invaders") {
-    const pilot = info.auto ? "AUTO" : "YOU";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, drag, or arrows`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · ${GAME_HINTS.pong}`;
   }
   if (id === "dino") {
     const pilot = info.alive ? (info.auto ? "AUTO" : "YOU") : "HIT";
-    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · click, Space, or ↑`;
+    return `Score ${info.score ?? 0} · Best ${info.best ?? 0} · ${pilot} · ${GAME_HINTS.dino}`;
   }
-  const GAME_HINTS = {
-    frogger: "tap or ↑ hop · ← → dodge traffic",
-    asteroids: "← → rotate · ↑ thrust · space shoot",
-    centipede: "drag or A/D · space / click to shoot",
-    "space-shooter": "← → or drag · space to fire",
-    "brick-stack": "click or space to drop the bar",
-    catcher: "drag or ← → to catch falling bits",
-    whack: "tap bright moles before they hide",
-    slither: "tap a side or arrows · wrap, rocks kill",
-    racetrack: "drag or ← → and stay on the road",
-    jumper: "space / click to hop · ← → drift",
-    sokoban: "arrows push the crate onto the goal",
-    minesweeper: "click reveal · shift-click flag",
-    memory: "click a card, then its matching glyph",
-    "lights-out": "click a cell to toggle neighbors",
-    2048: "arrows or swipe to slide tiles",
-    connect4: "click a column or ← → then space",
-    simon: "click the quadrant that just flashed",
-    rhythm: "hit notes on the line · space / click lane",
-    cannons: "tap to burst incoming missiles",
-    "pinball-game": "drag or space to kick the flipper",
-  };
   if (GAME_HINTS[id]) {
     const dead = info.alive === false;
     const pilot = dead ? "DEAD" : info.auto ? "AUTO" : "YOU";
@@ -247,31 +346,24 @@ function hudText(side, data) {
   if (id === "clock") {
     return `Local time ${info.time || ""}`.trim() + " · hours, minutes, then seconds.";
   }
-  const UTILITY_HINTS = {
-    timer: `${info.running ? "RUN" : info.done ? "DONE" : "PAUSE"} ${info.remaining || "01:00"} · click/space start-pause · up/down or +/- add 30s · C/R reset to 60s`,
-    pomodoro: `${(info.phase || "work").toUpperCase()} ${info.remaining || ""} · click/space start-pause · C/R reset · 25 then 5`,
-    stopwatch: `${info.running ? "RUN" : "PAUSE"} ${info.elapsed || "00:00"} · click/space start-pause · C/R zero`,
-    utc: `UTC ${info.time || ""} · same stacked digits as Clock`,
-    date: `${info.weekday || ""} ${info.date || ""}`,
-    "week-number": `ISO week ${info.week ?? ""} · ${info.year ?? ""}`,
-    "fuzzy-clock": info.words ? `${info.words} · ${info.time || ""}` : "Time in words, nearest five minutes",
-    "binary-clock": `Binary ${info.time || ""} · H M S as bit columns`,
-    "seconds-bar": `Second ${info.second ?? ""} · column fills through the minute`,
-    alarm: `${info.time || ""} · flashes at :00 of each minute`,
-    "tap-tempo": `${info.bpm || 0} BPM · tap or space · C resets`,
-    "battery-bar": `${info.percent ?? "?"} percent${info.live ? "" : " (simulated)"}`,
-    "cpu-pulse": `Load ${info.load ?? "sim"} · nine bars`,
-    "moon-phase": `${info.phase || ""} · real synodic phase`,
-    dice: `Rolled ${info.value ?? 6} · click or space to roll`,
-    "coin-flip": `${info.side || "heads"} · click or space to toss`,
-    progress: `${info.percent ?? 0} percent · click +5 · ↑↓ · C zeros`,
-    "chess-clock": `${info.white || "05:00"} / ${info.black || "05:00"} · ${info.active || "white"} · click/space punch · C/R reset`,
-    "breath-pacer": `${info.phase || "IN"} · box breathing 4-4-4-4 on the wall clock`,
-    "water-reminder": info.due ? "SIP · click when you drank" : `${info.remaining || ""} until a sip · click logged it · ↑↓ interval`,
-    "focus-bar": `${info.running ? "RUN" : "PAUSE"} ${info.remaining || ""} of ${info.duration_min ?? 50} min · click start · ↑↓ length · C/R reset`,
-  };
-  if (UTILITY_HINTS[id]) return UTILITY_HINTS[id];
+  const utility = utilityHint(id, info);
+  if (utility) return utility;
   return item ? item.description : "";
+}
+
+function toast(text, { kind = "", duration = 1500 } = {}) {
+  if (!toastsEl || !text) return;
+  const el = document.createElement("div");
+  el.className = kind ? `toast ${kind}` : "toast";
+  el.setAttribute("role", "status");
+  el.textContent = text;
+  toastsEl.appendChild(el);
+  while (toastsEl.children.length > 3) toastsEl.firstElementChild.remove();
+  requestAnimationFrame(() => el.classList.add("show"));
+  window.setTimeout(() => {
+    el.classList.remove("show");
+    window.setTimeout(() => el.remove(), 360);
+  }, duration);
 }
 
 function setFocus(side, { rebuild = true } = {}) {
@@ -279,10 +371,19 @@ function setFocus(side, { rebuild = true } = {}) {
   document.querySelectorAll(".module").forEach((mod) => {
     mod.classList.toggle("focused", mod.dataset.side === side);
   });
+  updateRailLabels();
   if (rebuild) {
     lastLibKey = "";
     maybeRenderLibrary();
   }
+}
+
+function updateRailLabels() {
+  if (railLeftLabel) {
+    railLeftLabel.textContent = narrow ? `Library · tap sends to ${sideLabel(focus)}` : "Left well";
+  }
+  if (railRightLabel) railRightLabel.textContent = "Right well";
+  if (railRight) railRight.hidden = narrow;
 }
 
 function activeGroupRecord() {
@@ -307,12 +408,15 @@ function mergeGroups(serverGroups) {
   if (selectionGroup && !groups.some((group) => group.id === selectionGroup)) {
     selectionGroup = "";
   }
+  if (confirmDeleteGroup && !groups.some((group) => group.id === confirmDeleteGroup)) {
+    confirmDeleteGroup = "";
+  }
 }
 
 function maybeRenderLibrary() {
   const favKey = [...favorites].sort().join(",");
   const groupKey = groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(";");
-  const key = `${state.left_anim}|${state.right_anim}|${focus}|${searchQuery}|${kindFilter}|${activeGroup}|${selectionGroup}|${favKey}|${groupKey}|${groupsStatus}|${catalog.map((c) => c.id).join(",")}`;
+  const key = `${state.left_anim}|${state.right_anim}|${focus}|${narrow}|${searchQuery}|${kindFilter}|${activeGroup}|${selectionGroup}|${favKey}|${groupKey}|${groupsStatus}|${catalogRev}|${catalog.length}`;
   if (key === lastLibKey) return;
   lastLibKey = key;
   document.body.classList.toggle("filing", !!selectionGroup);
@@ -436,9 +540,6 @@ function visibleCatalog() {
 }
 
 function emptyLibraryMessage() {
-  if (kindFilter === "favorites" && favorites.size === 0 && !activeGroup) {
-    return "No favorites yet. Tap the heart on a card.";
-  }
   if (kindFilter === "favorites" && favorites.size === 0) {
     return "No favorites yet. Tap the heart on a card.";
   }
@@ -508,6 +609,13 @@ function acceptSearch(assignIt) {
 function renderLibrary() {
   if (!catalog.length) return;
   const q = searchQuery.trim();
+  if (narrow) {
+    // One merged list under the wells; cards go to the focused well, L/R badges pick a side.
+    const items = q ? rankedCatalog().map((row) => row.item) : visibleCatalog();
+    fillLibrary(libraryLeft, items, null, !!q);
+    libraryRight.innerHTML = "";
+    return;
+  }
   if (!q) {
     const items = visibleCatalog();
     const mid = Math.ceil(items.length / 2);
@@ -518,6 +626,13 @@ function renderLibrary() {
   const items = rankedCatalog().map((row) => row.item);
   fillLibrary(libraryLeft, items, "left", true);
   fillLibrary(libraryRight, items, "right", true);
+}
+
+function playingCaption(leftOn, rightOn) {
+  if (leftOn && rightOn) return "Playing · Both";
+  if (leftOn) return "Playing · Left";
+  if (rightOn) return "Playing · Right";
+  return "";
 }
 
 function fillLibrary(root, items, clickSide, searching = false) {
@@ -534,14 +649,25 @@ function fillLibrary(root, items, clickSide, searching = false) {
   for (const item of items) {
     const card = document.createElement("article");
     card.className = "card";
-    const onThis = state[`${clickSide}_anim`] === item.id;
-    if (onThis) card.classList.add("active");
-    if (topId && item.id === topId) card.classList.add("suggest");
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.dataset.id = item.id;
     const leftOn = state.left_anim === item.id;
     const rightOn = state.right_anim === item.id;
+    if (leftOn || rightOn) card.classList.add("active");
+    if (topId && item.id === topId) card.classList.add("suggest");
+    const target = clickSide || focus;
+    card.setAttribute("aria-label", `${item.name}. ${kindLabel(item.kind)}. Press Enter to play on the ${target} well.`);
 
     const title = document.createElement("h3");
     title.textContent = item.name;
+    const caption = playingCaption(leftOn, rightOn);
+    if (caption) {
+      const playing = document.createElement("span");
+      playing.className = "playing";
+      playing.textContent = caption;
+      title.appendChild(playing);
+    }
     const blurb = document.createElement("p");
     blurb.textContent = item.description;
     const badges = document.createElement("div");
@@ -601,6 +727,8 @@ function fillLibrary(root, items, clickSide, searching = false) {
       badge.className = `badge assign ${on ? "on" : ""}`;
       badge.textContent = label;
       badge.title = `Run ${item.name} on the ${side} module`;
+      badge.setAttribute("aria-label", badge.title);
+      badge.setAttribute("aria-pressed", on ? "true" : "false");
       badge.addEventListener("click", (event) => {
         event.stopPropagation();
         assign(side, item.id);
@@ -609,14 +737,22 @@ function fillLibrary(root, items, clickSide, searching = false) {
     }
 
     card.append(title, blurb, badges);
-    card.addEventListener("click", () => {
+    const activate = () => {
       if (selectionGroup) {
         const group = selectionGroupRecord();
         const inGroup = groupIds(group).includes(item.id);
         toggleGroupItem(item, !inGroup);
         return;
       }
-      assign(clickSide, item.id);
+      assign(clickSide || focus, item.id);
+    };
+    card.addEventListener("click", activate);
+    card.addEventListener("keydown", (event) => {
+      if (event.target !== card) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        activate();
+      }
     });
     root.appendChild(card);
   }
@@ -640,9 +776,20 @@ async function postJson(path, body) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error("post");
-    return await res.json();
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    if (!res.ok) {
+      const reason = data && data.error ? data.error : `HTTP ${res.status}`;
+      toast(`Couldn't save — ${reason}`, { kind: "error", duration: 2600 });
+      return null;
+    }
+    return data;
   } catch {
+    toast("Couldn't reach the app — change not saved", { kind: "error", duration: 2600 });
     return null;
   }
 }
@@ -679,6 +826,7 @@ function enterSelectionMode(groupId) {
     selectionGroup = groupId;
     activeGroup = "";
   }
+  confirmDeleteGroup = "";
   lastLibKey = "";
   lastGroupUiKey = "";
   maybeRenderLibrary();
@@ -694,6 +842,7 @@ function openGroupView(groupId) {
     selectionGroup = "";
     activeGroup = groupId;
   }
+  confirmDeleteGroup = "";
   lastLibKey = "";
   lastGroupUiKey = "";
   maybeRenderLibrary();
@@ -710,16 +859,23 @@ async function toggleHeart(item) {
   const on = !favorites.has(item.id);
   if (on) favorites.add(item.id);
   else favorites.delete(item.id);
-  if (selectionGroup) {
-    setGroupMembership(selectionGroupRecord(), item.id, on);
+  const group = selectionGroup ? selectionGroupRecord() : null;
+  if (group) {
+    setGroupMembership(group, item.id, on);
   }
   lastLibKey = "";
   maybeRenderLibrary();
   const fav = await postJson("/api/favorite", { id: item.id, on });
-  if (fav) applyLibrary(fav);
+  if (fav) {
+    applyLibrary(fav);
+    toast(on ? `♥ ${item.name}` : `Removed ${item.name} from favorites`);
+  }
   if (selectionGroup) {
     const filed = await postJson("/api/groups/item", { groupId: selectionGroup, animId: item.id, on });
-    if (filed) applyLibrary(filed);
+    if (filed) {
+      applyLibrary(filed);
+      if (group) toast(on ? `Added to ${group.name}` : `Removed from ${group.name}`);
+    }
   }
   lastLibKey = "";
   maybeRenderLibrary();
@@ -727,21 +883,44 @@ async function toggleHeart(item) {
 
 async function toggleGroupItem(item, on) {
   if (!selectionGroup) return;
-  setGroupMembership(selectionGroupRecord(), item.id, on);
+  const group = selectionGroupRecord();
+  setGroupMembership(group, item.id, on);
   lastLibKey = "";
   maybeRenderLibrary();
   const filed = await postJson("/api/groups/item", { groupId: selectionGroup, animId: item.id, on });
-  if (filed) applyLibrary(filed);
+  if (filed) {
+    applyLibrary(filed);
+    if (group) toast(on ? `Added to ${group.name}` : `Removed from ${group.name}`);
+  }
   lastLibKey = "";
   maybeRenderLibrary();
 }
 
 function maybeRenderGroups(force = false) {
   if (!force && document.querySelector(".group-composer")) return;
-  const key = `${groupsStatus}|${activeGroup}|${selectionGroup}|${randomGroup || ""}|${groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(",")}`;
+  const key = `${groupsStatus}|${activeGroup}|${selectionGroup}|${confirmDeleteGroup}|${randomGroup || ""}|${groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(",")}`;
   if (!force && key === lastGroupUiKey) return;
   lastGroupUiKey = key;
   renderGroups();
+}
+
+async function deleteGroup(group) {
+  confirmDeleteGroup = "";
+  const data = await postJson("/api/groups/delete", { id: group.id });
+  if (data && Array.isArray(data.groups)) groups = data.groups;
+  else if (data) groups = groups.filter((row) => row.id !== group.id);
+  if (!data) {
+    lastGroupUiKey = "";
+    maybeRenderGroups();
+    return;
+  }
+  if (activeGroup === group.id) activeGroup = "";
+  if (selectionGroup === group.id) selectionGroup = "";
+  if (randomGroup === group.id) randomGroup = null;
+  toast(`Deleted ${group.name}`);
+  lastLibKey = "";
+  lastGroupUiKey = "";
+  maybeRenderLibrary();
 }
 
 function renderGroups() {
@@ -777,11 +956,43 @@ function renderGroups() {
     if (selectionGroup === group.id) bubble.classList.add("selecting");
     bubble.dataset.groupId = group.id;
 
+    if (confirmDeleteGroup === group.id) {
+      bubble.classList.add("confirming");
+      const prompt = document.createElement("span");
+      prompt.className = "group-confirm-text";
+      prompt.textContent = `Delete ${group.name}?`;
+      const yes = document.createElement("button");
+      yes.type = "button";
+      yes.className = "group-confirm yes";
+      yes.textContent = "Yes";
+      yes.setAttribute("aria-label", `Yes, delete ${group.name}`);
+      yes.addEventListener("click", (event) => {
+        event.stopPropagation();
+        deleteGroup(group);
+      });
+      const no = document.createElement("button");
+      no.type = "button";
+      no.className = "group-confirm no";
+      no.textContent = "No";
+      no.setAttribute("aria-label", `Keep ${group.name}`);
+      no.addEventListener("click", (event) => {
+        event.stopPropagation();
+        confirmDeleteGroup = "";
+        lastGroupUiKey = "";
+        maybeRenderGroups();
+      });
+      bubble.append(prompt, yes, no);
+      row.appendChild(bubble);
+      queueMicrotask(() => no.focus());
+      continue;
+    }
+
     const select = document.createElement("button");
     select.type = "button";
     select.className = "group-select";
     select.textContent = `${group.name} · ${(group.ids || []).length}`;
     select.title = `Show ${group.name}`;
+    select.setAttribute("aria-pressed", activeGroup === group.id ? "true" : "false");
     select.addEventListener("click", () => {
       openGroupView(group.id);
     });
@@ -806,6 +1017,7 @@ function renderGroups() {
     rand.className = randomGroup === group.id ? "group-random on" : "group-random";
     rand.textContent = randomGroup === group.id ? "Random · on" : "Random";
     rand.title = `Cycle only ${group.name} for 10–30 seconds each`;
+    rand.setAttribute("aria-pressed", randomGroup === group.id ? "true" : "false");
     rand.addEventListener("click", async (event) => {
       event.stopPropagation();
       const enabled = randomGroup !== group.id;
@@ -817,8 +1029,7 @@ function renderGroups() {
           randomBtn.classList.toggle("on", globalOn);
           randomBtn.textContent = globalOn ? "Random · on" : "Random";
         }
-      } else {
-        randomGroup = enabled ? group.id : null;
+        toast(enabled ? `Shuffling ${group.name}` : "Shuffle off");
       }
       lastGroupUiKey = "";
       maybeRenderGroups();
@@ -829,18 +1040,12 @@ function renderGroups() {
     del.className = "group-delete";
     del.textContent = "×";
     del.setAttribute("aria-label", `Delete ${group.name}`);
-    del.addEventListener("click", async (event) => {
+    del.title = `Delete ${group.name}`;
+    del.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (!window.confirm(`Delete ${group.name}?`)) return;
-      const data = await postJson("/api/groups/delete", { id: group.id });
-      if (data && Array.isArray(data.groups)) groups = data.groups;
-      else groups = groups.filter((row) => row.id !== group.id);
-      if (activeGroup === group.id) activeGroup = "";
-      if (selectionGroup === group.id) selectionGroup = "";
-      if (randomGroup === group.id) randomGroup = null;
-      lastLibKey = "";
+      confirmDeleteGroup = group.id;
       lastGroupUiKey = "";
-      maybeRenderLibrary();
+      maybeRenderGroups();
     });
 
     bubble.append(select, add, rand, del);
@@ -926,8 +1131,7 @@ function beginNewGroup() {
       groupsStatus = "ready";
       activeGroup = "";
       selectionGroup = data.group.id;
-    } else if (!data) {
-      groupsStatus = "error";
+      toast(`Created ${data.group.name} — tap cards to add`);
     }
     lastLibKey = "";
     lastGroupUiKey = "";
@@ -955,6 +1159,29 @@ async function loadLibrary() {
   maybeRenderLibrary();
 }
 
+async function loadCatalog(rev) {
+  if (catalogLoading) return catalogLoading;
+  catalogLoading = (async () => {
+    try {
+      const res = await fetch("/api/animations", { cache: "no-store" });
+      if (!res.ok) throw new Error("animations");
+      const data = await res.json();
+      if (Array.isArray(data.animations) && data.animations.length) {
+        catalog = data.animations;
+        catalogRev = data.rev || rev || "";
+        lastLibKey = "";
+        maybeRenderLibrary();
+        showMarqueeFields();
+      }
+    } catch {
+      /* the next frame tick retries while the rev still differs */
+    } finally {
+      catalogLoading = null;
+    }
+  })();
+  return catalogLoading;
+}
+
 function clearOverlay(side) {
   overlay[side].fill(0);
   overlayOn[side].fill(0);
@@ -968,6 +1195,7 @@ async function assign(side, id) {
   lastLibKey = "";
   maybeRenderLibrary();
   showMarqueeFields();
+  toast(`${animName(id)} → ${sideLabel(side)}`);
   if (id === "marquee") {
     const input = side === "right" ? rightText : leftText;
     queueMicrotask(() => {
@@ -979,9 +1207,9 @@ async function assign(side, id) {
 }
 
 function showMarqueeFields() {
-  for (const [side, input, field] of [
-    ["left", leftText, leftMarquee],
-    ["right", rightText, rightMarquee],
+  for (const [side, field] of [
+    ["left", leftMarquee],
+    ["right", rightMarquee],
   ]) {
     const on = currentAnim(side) === "marquee";
     field.classList.toggle("hidden", !on);
@@ -1015,7 +1243,7 @@ function paintsInk(id) {
 }
 
 function wantsDrag(id) {
-  const item = catalog.find((c) => c.id === id);
+  const item = catalogItem(id);
   if (item && item.drag) return true;
   return paintsInk(id) || [
     "pong",
@@ -1159,7 +1387,8 @@ function continueDraw(event) {
 }
 
 function onDocPointerDown(event) {
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .selection-done, .selection-bar, .filing-banner, input, textarea, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select")) {
+  if (helpOpen()) return;
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .selection-done, .selection-bar, .filing-banner, input, textarea, button, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select, .first-run, .toasts, .sheet-scrim")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -1181,6 +1410,7 @@ function onDocPointerMove(event) {
     continueDraw(event);
     return;
   }
+  if (helpOpen()) return;
   const side = sideFromPoint(event.clientX, event.clientY);
   if (!side) return;
   startDraw(side, event);
@@ -1203,13 +1433,40 @@ function sendKey(side, code) {
   post("/api/key", { side, code });
 }
 
+function formatBrightness(value) {
+  return String(Math.round(Number(value) || 0));
+}
+
+function formatSpeed(value) {
+  return `${(Number(value) / 100).toFixed(2).replace(/0$/, "")}×`;
+}
+
+function updateMeterLabels() {
+  if (brightnessValue) brightnessValue.textContent = formatBrightness(brightnessEl.value);
+  if (speedValue) speedValue.textContent = formatSpeed(speedEl.value);
+}
+
+function setOffline(on) {
+  if (on === offline) return;
+  offline = on;
+  document.body.classList.toggle("offline", on);
+  if (on) {
+    toast("Offline — retrying", { kind: "error", duration: 2200 });
+  } else {
+    toast("Back online");
+  }
+}
+
 async function tick() {
   try {
     const res = await fetch("/api/frame", { cache: "no-store" });
     if (!res.ok) throw new Error("frame");
     const data = await res.json();
-    if (data.catalog && data.catalog.length) {
-      catalog = data.catalog;
+    setOffline(false);
+    if (data.catalogRev && data.catalogRev !== catalogRev) {
+      loadCatalog(data.catalogRev);
+    } else if (!catalog.length) {
+      loadCatalog("");
     }
     for (const side of ["left", "right"]) {
       const serverId = data[`${side}_anim`];
@@ -1227,18 +1484,21 @@ async function tick() {
     }
     drawMatrix(leftCtx, leftCanvas, lastPixels.left);
     drawMatrix(rightCtx, rightCanvas, lastPixels.right);
-    const leftItem = catalog.find((c) => c.id === data.left_anim);
-    const rightItem = catalog.find((c) => c.id === data.right_anim);
-    leftName.textContent = leftItem ? leftItem.name : data.left_anim;
-    rightName.textContent = rightItem ? rightItem.name : data.right_anim;
-    leftHud.textContent = hudText("left", data);
-    rightHud.textContent = hudText("right", data);
+    const leftLabel = animName(data.left_anim);
+    const rightLabel = animName(data.right_anim);
+    if (leftName.textContent !== leftLabel) leftName.textContent = leftLabel;
+    if (rightName.textContent !== rightLabel) rightName.textContent = rightLabel;
+    const leftHudText = hudText("left", data);
+    const rightHudText = hudText("right", data);
+    if (leftHud.textContent !== leftHudText) leftHud.textContent = leftHudText;
+    if (rightHud.textContent !== rightHudText) rightHud.textContent = rightHudText;
     pill(leftPill, "Left", data.hardware.left);
     pill(rightPill, "Right", data.hardware.right);
     if (document.activeElement !== brightnessEl) brightnessEl.value = data.brightness;
     if (document.activeElement !== speedEl && typeof data.speed === "number") {
       speedEl.value = Math.round(data.speed * 100);
     }
+    updateMeterLabels();
     if (Array.isArray(data.favorites)) favorites = new Set(data.favorites);
     if (Array.isArray(data.groups)) {
       mergeGroups(data.groups);
@@ -1248,6 +1508,7 @@ async function tick() {
       const globalOn = !!data.random && !data.randomGroup;
       randomBtn.classList.toggle("on", globalOn);
       randomBtn.textContent = globalOn ? "Random · on" : "Random";
+      randomBtn.setAttribute("aria-pressed", globalOn ? "true" : "false");
     }
     const texts = data.text || {};
     showMarqueeFields();
@@ -1267,7 +1528,114 @@ async function tick() {
   } catch (err) {
     leftPill.textContent = "Left · offline";
     rightPill.textContent = "Right · offline";
+    leftPill.classList.remove("live");
+    rightPill.classList.remove("live");
+    setOffline(true);
   }
+}
+
+function helpOpen() {
+  return !!helpSheet && !helpSheet.classList.contains("hidden");
+}
+
+function renderHelp() {
+  if (!helpBody) return;
+  const rows = [];
+  rows.push('<section class="help-section"><h3>Everywhere</h3><dl class="keys">');
+  for (const [key, what] of GLOBAL_KEYS) {
+    rows.push(`<div><dt><kbd>${escapeHtml(key)}</kbd></dt><dd>${escapeHtml(what)}</dd></div>`);
+  }
+  rows.push("</dl></section>");
+
+  rows.push('<section class="help-section"><h3>Playing now</h3><dl class="keys">');
+  for (const side of ["left", "right"]) {
+    const id = currentAnim(side);
+    const hint = GAME_HINTS[id] || UTILITY_KEYS[id] || "";
+    const name = animName(id);
+    const focused = focus === side ? " · keys go here" : "";
+    rows.push(
+      `<div><dt>${escapeHtml(sideLabel(side))}${escapeHtml(focused)}</dt><dd><strong>${escapeHtml(name)}</strong>${
+        hint ? ` — ${escapeHtml(hint)}` : " — no keys; it just runs"
+      }</dd></div>`
+    );
+  }
+  rows.push("</dl></section>");
+
+  rows.push('<section class="help-section"><h3>How it works</h3>');
+  rows.push(
+    "<p>Click a card to play it on the well you last clicked; the <strong>L</strong>/<strong>R</strong> badges send it to a specific side. Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once. Double-click a slider to reset it.</p>"
+  );
+  rows.push("</section>");
+
+  rows.push('<section class="help-section"><h3>Games</h3><dl class="keys compact">');
+  for (const [id, hint] of Object.entries(GAME_HINTS)) {
+    rows.push(`<div><dt>${escapeHtml(animName(id))}</dt><dd>${escapeHtml(hint)}</dd></div>`);
+  }
+  rows.push("</dl></section>");
+
+  rows.push('<section class="help-section"><h3>Utilities and drawing</h3><dl class="keys compact">');
+  for (const [id, hint] of Object.entries(UTILITY_KEYS)) {
+    rows.push(`<div><dt>${escapeHtml(animName(id))}</dt><dd>${escapeHtml(hint)}</dd></div>`);
+  }
+  rows.push("</dl></section>");
+  helpBody.innerHTML = rows.join("");
+}
+
+function openHelp() {
+  if (!helpSheet || helpOpen()) return;
+  renderHelp();
+  lastReturnFocus = document.activeElement;
+  helpSheet.classList.remove("hidden");
+  helpSheet.setAttribute("aria-hidden", "false");
+  document.body.classList.add("sheet-open");
+  if (helpBtn) helpBtn.setAttribute("aria-expanded", "true");
+  queueMicrotask(() => helpClose && helpClose.focus());
+}
+
+function closeHelp() {
+  if (!helpSheet || !helpOpen()) return;
+  helpSheet.classList.add("hidden");
+  helpSheet.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("sheet-open");
+  if (helpBtn) helpBtn.setAttribute("aria-expanded", "false");
+  const back = lastReturnFocus;
+  lastReturnFocus = null;
+  if (back && typeof back.focus === "function" && document.contains(back)) back.focus();
+  else if (helpBtn) helpBtn.focus();
+}
+
+function toggleHelp() {
+  if (helpOpen()) closeHelp();
+  else openHelp();
+}
+
+function hintDismissed() {
+  try {
+    return window.localStorage.getItem(HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function dismissHint() {
+  try {
+    window.localStorage.setItem(HINT_KEY, "1");
+  } catch {
+    /* private mode: hide for this session only */
+  }
+  if (firstRun) firstRun.hidden = true;
+}
+
+function showHintIfFirstRun() {
+  if (!firstRun) return;
+  firstRun.hidden = hintDismissed();
+}
+
+async function favoritePlaying() {
+  const id = currentAnim(focus);
+  const item = catalogItem(id);
+  if (!item) return;
+  await toggleHeart(item);
 }
 
 document.addEventListener("pointerdown", onDocPointerDown, true);
@@ -1280,13 +1648,58 @@ leftBezel.addEventListener("contextmenu", (event) => event.preventDefault());
 rightBezel.addEventListener("contextmenu", (event) => event.preventDefault());
 
 window.addEventListener("keydown", (event) => {
-  if (event.target && ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) {
+  const target = event.target;
+  const inField = target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  if (helpOpen()) {
+    if (event.code === "Escape" || event.key === "?") {
+      event.preventDefault();
+      closeHelp();
+    }
+    return;
+  }
+  if (inField) {
+    return;
+  }
+  if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    openHelp();
+    return;
+  }
+  // Buttons, cards, and other controls own Enter/Space/arrow keys while focused.
+  if (target && target.closest && target.closest(".card, button, a, [role='button'], .group-bubble, .sheet-scrim")) {
     return;
   }
   if (event.code === "Escape" && selectionGroup) {
     event.preventDefault();
     exitSelectionMode();
     return;
+  }
+  if (event.code === "Escape" && confirmDeleteGroup) {
+    event.preventDefault();
+    confirmDeleteGroup = "";
+    lastGroupUiKey = "";
+    maybeRenderGroups();
+    return;
+  }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (event.key === "/") {
+      event.preventDefault();
+      searchEl.focus();
+      searchEl.select();
+      return;
+    }
+    const digitFocus = (event.code === "Digit1" || event.code === "Digit2") && currentAnim(focus) !== "simon";
+    if (digitFocus) {
+      event.preventDefault();
+      setFocus(event.code === "Digit1" ? "left" : "right");
+      toast(`Keys → ${sideLabel(focus)}`);
+      return;
+    }
+    if (event.code === "KeyF" && !event.shiftKey) {
+      event.preventDefault();
+      favoritePlaying();
+      return;
+    }
   }
   if (IGNORE_KEYS.has(event.code)) return;
   if (
@@ -1302,22 +1715,47 @@ window.addEventListener("keydown", (event) => {
 });
 
 brightnessEl.addEventListener("input", () => {
+  updateMeterLabels();
   post("/api/brightness", { value: Number(brightnessEl.value) });
+});
+brightnessEl.addEventListener("dblclick", () => {
+  brightnessEl.value = DEFAULT_BRIGHTNESS;
+  updateMeterLabels();
+  post("/api/brightness", { value: DEFAULT_BRIGHTNESS });
+  toast(`Brightness reset to ${DEFAULT_BRIGHTNESS}`);
 });
 
 speedEl.addEventListener("input", () => {
+  updateMeterLabels();
   post("/api/speed", { value: Number(speedEl.value) / 100 });
+});
+speedEl.addEventListener("dblclick", () => {
+  speedEl.value = DEFAULT_SPEED;
+  updateMeterLabels();
+  post("/api/speed", { value: DEFAULT_SPEED / 100 });
+  toast("Speed reset to 1.0×");
 });
 
 randomBtn.addEventListener("click", () => {
   const on = !randomBtn.classList.contains("on");
   randomBtn.classList.toggle("on", on);
   randomBtn.textContent = on ? "Random · on" : "Random";
+  randomBtn.setAttribute("aria-pressed", on ? "true" : "false");
   randomGroup = null;
   lastGroupUiKey = "";
   post("/api/random", { enabled: on });
+  toast(on ? "Shuffling the whole catalog" : "Shuffle off");
   maybeRenderGroups();
 });
+
+if (helpBtn) helpBtn.addEventListener("click", toggleHelp);
+if (helpClose) helpClose.addEventListener("click", closeHelp);
+if (helpSheet) {
+  helpSheet.addEventListener("click", (event) => {
+    if (event.target === helpSheet) closeHelp();
+  });
+}
+if (hintDismiss) hintDismiss.addEventListener("click", dismissHint);
 
 searchEl.addEventListener("input", () => {
   searchQuery = searchEl.value;
@@ -1373,11 +1811,6 @@ function setKindFilter(kind) {
 }
 
 if (typeFilters) {
-  typeFilters.addEventListener("pointerdown", (event) => {
-    if (event.target && event.target.closest && event.target.closest(".type-filter")) {
-      event.preventDefault();
-    }
-  });
   typeFilters.addEventListener("click", (event) => {
     const btn = event.target && event.target.closest && event.target.closest(".type-filter");
     if (!btn) return;
@@ -1393,9 +1826,21 @@ function bindText(input, side) {
 bindText(leftText, "left");
 bindText(rightText, "right");
 
+function onNarrowChange(event) {
+  narrow = event.matches;
+  updateRailLabels();
+  lastLibKey = "";
+  maybeRenderLibrary();
+}
+if (typeof narrowQuery.addEventListener === "function") narrowQuery.addEventListener("change", onNarrowChange);
+else if (typeof narrowQuery.addListener === "function") narrowQuery.addListener(onNarrowChange);
+
 setFocus("left");
+updateMeterLabels();
+showHintIfFirstRun();
 const newGroupBtn = document.getElementById("new-group");
 if (newGroupBtn) newGroupBtn.addEventListener("click", beginNewGroup);
+loadCatalog("");
 loadLibrary();
 refreshTheme(true);
 setInterval(() => refreshTheme(false), 3000);

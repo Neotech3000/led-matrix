@@ -2,29 +2,56 @@ import json
 import os
 import random
 import tempfile
+import threading
 import time
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
-from matrix_deck.anim import catalog_meta, create_animation
+from matrix_deck import __version__
+from matrix_deck.anim import catalog_meta, catalog_revision, create_animation
 from matrix_deck.canvas import Canvas
 from matrix_deck.engine import Deck
 from matrix_deck.server import WEB_ROOT, make_server
 
 
+def _serve(deck):
+    """Bind a server on a free port, run it on a thread, return (httpd, base_url)."""
+    httpd = make_server(deck, "127.0.0.1", 0)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    host, port = httpd.server_address
+    return httpd, f"http://{host}:{port}"
+
+
+def _get(url):
+    with urllib.request.urlopen(url, timeout=5) as res:
+        return res.status, res.read()
+
+
+def _post(url, payload):
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=5) as res:
+            return res.status, json.loads(res.read().decode("utf-8"))
+    except urllib.error.HTTPError as err:
+        return err.code, json.loads(err.read().decode("utf-8"))
+
+
 class EngineTests(unittest.TestCase):
-    def test_snapshot_includes_catalog(self):
+    def test_snapshot_carries_catalog_rev_not_the_catalog(self):
         deck = Deck(fps=20)
         deck.left_anim.step(0.05, deck.left_canvas)
         deck.right_anim.step(0.05, deck.right_canvas)
         snap = deck.snapshot()
         self.assertEqual(len(snap["left"]), 9 * 34)
         self.assertEqual(len(snap["right"]), 9 * 34)
-        ids = [item["id"] for item in snap["catalog"]]
-        self.assertIn("flappy", ids)
-        self.assertIn("fishtank", ids)
-        self.assertIn("sketch", ids)
+        self.assertNotIn("catalog", snap)
+        self.assertEqual(snap["catalogRev"], catalog_revision())
+        self.assertTrue(snap["catalogRev"].startswith("872-"))
         self.assertEqual(snap["left_anim"], "flappy")
         self.assertEqual(snap["right_anim"], "fishtank")
         self.assertEqual(snap["speed"], 1.0)
@@ -32,9 +59,37 @@ class EngineTests(unittest.TestCase):
         self.assertIsNone(snap["randomGroup"])
         self.assertEqual(snap["favorites"], [])
         self.assertEqual(snap["groups"], [])
-        kinds = {item["id"]: item["kind"] for item in snap["catalog"]}
-        self.assertEqual(kinds["flappy"], "game")
-        self.assertEqual(kinds["sketch"], "sketch")
+        encoded = json.dumps(snap).encode("utf-8")
+        self.assertLess(len(encoded), 8 * 1024)
+        ids = [item["id"] for item in catalog_meta()]
+        self.assertIn("flappy", ids)
+        self.assertIn("fishtank", ids)
+        self.assertIn("sketch", ids)
+
+    def test_frame_endpoint_is_small_and_animations_endpoint_has_rev(self):
+        deck = Deck()
+        httpd, base = _serve(deck)
+        try:
+            status, raw = _get(f"{base}/api/frame")
+            self.assertEqual(status, 200)
+            frame = json.loads(raw)
+            self.assertNotIn("catalog", frame)
+            self.assertLess(len(raw), 8 * 1024)
+            self.assertIn("themeRev", frame)
+            status, raw = _get(f"{base}/api/animations")
+            self.assertEqual(status, 200)
+            data = json.loads(raw)
+            self.assertEqual(data["rev"], frame["catalogRev"])
+            self.assertEqual(len(data["animations"]), 872)
+            self.assertGreater(len(raw), 40 * 1024)
+            status, raw = _get(f"{base}/api/health")
+            health = json.loads(raw)
+            self.assertEqual(health["version"], __version__)
+            self.assertEqual(health["animations"], 872)
+            self.assertEqual(health["catalogRev"], frame["catalogRev"])
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
 
     def test_can_switch_animations(self):
         deck = Deck(fps=20)
@@ -265,8 +320,23 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.4.1", html)
+        self.assertIn("?v=2.5.0", html)
+        self.assertNotIn("?v=2.4.1", html)
         self.assertNotIn("<h1>", html)
+        # 2.5.0 UI: labels, help sheet, toasts, first-run hint, focusable chips.
+        self.assertIn('id="brightness-value"', html)
+        self.assertIn('id="speed-value"', html)
+        self.assertIn('id="help-btn"', html)
+        self.assertIn('id="help-sheet"', html)
+        self.assertIn('role="dialog"', html)
+        self.assertIn('id="toasts"', html)
+        self.assertIn('id="first-run"', html)
+        self.assertIn('id="hint-dismiss"', html)
+        self.assertIn('id="left-keys"', html)
+        self.assertIn('id="right-keys"', html)
+        self.assertIn('id="left-hud" aria-live="polite"', html)
+        self.assertIn('id="left-name" aria-live="polite"', html)
+        self.assertNotIn('tabindex="-1"', html)
         self.assertIn("left-marquee", html)
         self.assertIn("Type a message", html)
         self.assertIn("library-left", html)
@@ -310,7 +380,7 @@ class EngineTests(unittest.TestCase):
         self.assertGreater(html.find('id="search"'), html.find('class="stage"'))
         self.assertGreater(html.find('id="search"'), html.find('id="left-bezel"'))
         self.assertGreater(html.find('id="search"'), html.find('id="right-bezel"'))
-        self.assertLess(html.find('id="search"'), html.find('class="assign"'))
+        self.assertLess(html.find('id="search"'), html.find('class="assign first-run"'))
         meters = html[html.find('class="meters"') : html.find('class="workspace"')]
         self.assertNotIn('id="search"', meters)
         self.assertIn('id="brightness"', meters)
@@ -360,8 +430,41 @@ class EngineTests(unittest.TestCase):
         self.assertIn("stage-tools", js)
         self.assertNotIn("play-btn", js)
         self.assertNotIn("Play here", html)
+        # 2.5.0: catalog comes from /api/animations, not the frame poll.
+        self.assertIn("/api/animations", js)
+        self.assertIn("catalogRev", js)
+        self.assertNotIn("data.catalog &&", js)
+        self.assertNotIn("window.confirm", js)
+        self.assertIn("Playing · Left", js)
+        self.assertIn("function toast(", js)
+        self.assertIn("Offline — retrying", js)
+        self.assertIn("Couldn't save", js)
+        self.assertIn("GLOBAL_KEYS", js)
+        self.assertIn("renderHelp", js)
+        self.assertIn("openHelp", js)
+        self.assertIn("closeHelp", js)
+        self.assertIn("DEFAULT_BRIGHTNESS", js)
+        self.assertIn("dblclick", js)
+        self.assertIn("group-confirm", js)
+        self.assertIn("localStorage", js)
+        self.assertIn('card.setAttribute("role", "button")', js)
+        self.assertIn("card.tabIndex = 0", js)
+        self.assertIn("max-width: 980px", js)
         css = (WEB_ROOT / "style.css").read_text()
         self.assertIn("--bg: #000", css)
+        self.assertIn(":focus-visible", css)
+        self.assertIn("prefers-reduced-motion", css)
+        self.assertIn(".card.active", css)
+        self.assertIn(".keys-hint", css)
+        self.assertIn(".toast", css)
+        self.assertIn(".sheet-scrim", css)
+        self.assertIn(".group-confirm", css)
+        self.assertIn(".meter-value", css)
+        self.assertIn("order: 0", css)
+        self.assertNotIn("#d8f5c8", css)
+        self.assertNotIn("backdrop-filter", css)
+        self.assertNotIn("animation:", css)
+        self.assertIn("--success", css)
         self.assertIn("--accent:", css)
         self.assertIn("var(--accent)", css)
         self.assertIn("var(--accent-soft)", css)

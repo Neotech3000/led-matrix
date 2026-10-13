@@ -313,6 +313,23 @@ def create_animation(anim_id: str) -> Animation:
     return cls()
 
 
+_CATALOG_REV: str | None = None
+
+
+def catalog_revision() -> str:
+    """Short stable tag for the catalog; the UI refetches /api/animations when it changes."""
+    global _CATALOG_REV
+    if _CATALOG_REV is None:
+        import hashlib
+
+        items = catalog_meta()
+        digest = hashlib.sha1(
+            "\n".join(f"{item['id']}|{item['name']}|{item['kind']}" for item in items).encode("utf-8")
+        ).hexdigest()[:10]
+        _CATALOG_REV = f"{len(items)}-{digest}"
+    return _CATALOG_REV
+
+
 def catalog_meta() -> list[dict]:
     table = factories()
     items = []
