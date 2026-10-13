@@ -8,13 +8,50 @@ import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs
 
 from matrix_deck import __version__
-from matrix_deck.anim import catalog_meta, catalog_revision
+from matrix_deck.anim import catalog_meta, catalog_revision, create_animation, factories
+from matrix_deck.canvas import Canvas
 from matrix_deck.engine import Deck
 from matrix_deck.theme import current_theme, theme_revision
 
 WEB_ROOT = Path(__file__).resolve().parent / "web"
+
+PREVIEW_FRAMES = 4
+PREVIEW_WARMUP_STEPS = 8
+PREVIEW_GAP_STEPS = 4
+PREVIEW_STEP = 0.06
+_PREVIEW_CACHE: dict[str, dict] = {}
+_PREVIEW_LOCK = threading.Lock()
+
+
+def render_preview(anim_id: str) -> dict | None:
+    """A few 9x34 frames of one animation, rendered offline and cached per id."""
+    anim_id = str(anim_id or "").strip()
+    if not anim_id:
+        return None
+    with _PREVIEW_LOCK:
+        cached = _PREVIEW_CACHE.get(anim_id)
+    if cached is not None:
+        return cached
+    table = factories()
+    if anim_id not in table:
+        return None
+    anim = create_animation(anim_id)
+    canvas = Canvas()
+    frames: list[list[int]] = []
+    for _ in range(PREVIEW_WARMUP_STEPS):
+        anim.step(PREVIEW_STEP, canvas)
+    for index in range(PREVIEW_FRAMES):
+        if index:
+            for _ in range(PREVIEW_GAP_STEPS):
+                anim.step(PREVIEW_STEP, canvas)
+        frames.append(canvas.snapshot())
+    payload = {"id": anim_id, "width": 9, "height": 34, "frames": frames}
+    with _PREVIEW_LOCK:
+        _PREVIEW_CACHE[anim_id] = payload
+    return payload
 
 
 class DeckHandler(SimpleHTTPRequestHandler):
@@ -58,6 +95,21 @@ class DeckHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/theme":
             self._json(200, current_theme())
+            return
+        if path == "/api/preview":
+            query = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            anim_id = (query.get("id") or [""])[0]
+            preview = render_preview(anim_id)
+            if preview is None:
+                self._json(404, {"ok": False, "error": "unknown animation"})
+                return
+            body = json.dumps(preview).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
         if path == "/api/library":
             data = self.deck.library_data()

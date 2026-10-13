@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LED Matrix</title>
-    <link rel="stylesheet" href="/style.css?v=2.5.0" />
+    <link rel="stylesheet" href="/style.css?v=2.6.0" />
   </head>
   <body>
     <header class="top">
@@ -33,8 +33,8 @@
     </header>
 
     <div class="workspace">
-      <section class="library-col rail-left" aria-label="Left animations">
-        <p class="col-label" id="rail-left-label">Left well</p>
+      <section class="library-col rail-left" aria-label="Library for the left well">
+        <p class="col-label" id="rail-left-label">Left well · click plays here</p>
         <div class="library" id="library-left"></div>
       </section>
 
@@ -56,6 +56,7 @@
             tabindex="0"
           >
             <canvas id="left" width="150" height="520"></canvas>
+            <div class="drop-overlay" id="left-drop" aria-hidden="true">Drop to play on Left</div>
           </div>
           <label class="marquee-field hidden" id="left-marquee">
             Type a message
@@ -81,6 +82,7 @@
             tabindex="0"
           >
             <canvas id="right" width="150" height="520"></canvas>
+            <div class="drop-overlay" id="right-drop" aria-hidden="true">Drop to play on Right</div>
           </div>
           <label class="marquee-field hidden" id="right-marquee">
             Type a message
@@ -130,7 +132,8 @@
 
         <div class="assign first-run" id="first-run" hidden>
           <p>
-            Click a card to play it on the well you last clicked; the <strong>L</strong>/<strong>R</strong> badges send it to a specific side.
+            Both rails show the whole library: the left rail plays on the left well, the right rail on the right.
+            Drag a card onto a well, or use the <strong>L</strong>/<strong>R</strong> badges. Hover a card for a live thumbnail.
             Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once.
             Press <strong>?</strong> any time for keyboard shortcuts.
           </p>
@@ -142,8 +145,8 @@
         </p>
       </section>
 
-      <section class="library-col rail-right" aria-label="Right animations">
-        <p class="col-label" id="rail-right-label">Right well</p>
+      <section class="library-col rail-right" aria-label="Library for the right well">
+        <p class="col-label" id="rail-right-label">Right well · click plays here</p>
         <div class="library" id="library-right"></div>
       </section>
     </div>
@@ -160,6 +163,6 @@
 
     <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
-    <script src="/app.js?v=2.5.0"></script>
+    <script src="/app.js?v=2.6.0"></script>
   </body>
 </html>

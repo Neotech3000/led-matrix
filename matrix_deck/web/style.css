@@ -18,6 +18,7 @@
   --well: #101218;
   --led: #fff4d0;
   --dim: color-mix(in srgb, var(--muted) 60%, var(--ink) 40%);
+  --card-h: 100px;
   font-family: "IBM Plex Sans", "Segoe UI", Helvetica, sans-serif;
 }
 
@@ -348,7 +349,31 @@ button.card-add,
 }
 .module.focused .keys-hint { opacity: 1; }
 
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--accent) 22%, rgba(0, 0, 0, 0.78));
+  border: 2px dashed var(--accent);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+.module.drop-hover .drop-overlay { opacity: 1; }
+body.dragging-card .bezel { border-color: var(--accent-55); border-style: dashed; }
+body.dragging-card .module.drop-hover .bezel { border-color: var(--accent); }
+
 .bezel {
+  position: relative;
   border: 1px solid #2c313a;
   background: linear-gradient(180deg, #1a1d23, #0c0d10);
   border-radius: 18px;
@@ -476,8 +501,21 @@ canvas {
   grid-template-columns: 1fr;
   gap: 8px;
 }
+.library.virtual {
+  display: block;
+  position: relative;
+}
+.library.virtual .card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--card-h);
+}
 
 .card {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
   text-align: left;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -485,6 +523,38 @@ canvas {
   border-radius: 12px;
   padding: 10px 10px 9px;
   cursor: pointer;
+  overflow: hidden;
+}
+.card.dragging { opacity: 0.45; }
+.card .thumb {
+  display: none;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 68px;
+  align-self: center;
+  border-radius: 3px;
+  image-rendering: pixelated;
+  background: #07080a;
+  border: 1px solid #2c313a;
+}
+.card.show-thumb .thumb { display: block; }
+.card-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.card-body p { flex: 1 1 auto; }
+.card h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .card:hover { border-color: var(--accent-35); }
 .card.suggest { border-color: var(--accent-55); }
@@ -496,7 +566,7 @@ canvas {
 }
 .card .playing {
   display: inline-block;
-  margin-left: 8px;
+  flex: 0 0 auto;
   font-size: 0.62rem;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -700,6 +770,29 @@ body.selecting .card.in-group {
   color: var(--muted);
 }
 .group-delete:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+.group-rename {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.group-rename:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+.group-bubble[draggable="true"] { cursor: grab; }
+.group-bubble.dragging { opacity: 0.45; }
+.group-bubble.drop-before { box-shadow: -3px 0 0 0 var(--accent); }
+.group-bubble.drop-after { box-shadow: 3px 0 0 0 var(--accent); }
+.group-bubble.renaming {
+  border-color: var(--accent-75);
+  padding: 2px 4px 2px 6px;
+}
+.group-composer.rename input { width: 150px; }
 .group-bubble.confirming {
   border-color: var(--accent-75);
   background: var(--accent-soft);

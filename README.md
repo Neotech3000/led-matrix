@@ -118,7 +118,7 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 ## Using the app
 
 - Click a well to send keyboard input there.
-- Left-column cards run on the left well; right-column cards run on the right well.
+- Both rails list the whole library. Left-rail cards run on the left well; right-rail cards run on the right well. Drag a card onto a well to play it there.
 - **L** / **R** badges on a card send that animation to either well.
 - Brightness and **speed** sit in the top bar. Speed scales every animation (0.25×–2.5×).
 - **Search** and the type chips sit **under the two live wells**, not in the top bar. Type a few letters — spelling can be sloppy. Tab fills in the best match; Enter runs it on the well you last clicked.
@@ -130,8 +130,16 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
   - macOS: `~/Library/Application Support/led-matrix/library.json`
   - Windows: `%APPDATA%\led-matrix\library.json`
 - **Random** shuffles both wells through the catalog. Each loop stays up for 10–30 seconds. Click a card to stop. Sketch, falling sand, and every other draw mode stay out of the shuffle; utilities can appear (Timer starts at 60 seconds).
-- The live preview stays in the **middle**; half the catalog is on the left, the rest on the right.
+- The live preview stays in the **middle**; the full catalog sits on both sides, each rail aimed at its own well.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
+
+### What's new in 2.6.0
+
+- **Both rails show the whole library.** The left rail plays on the left well, the right rail on the right — no more guessing which half a loop landed in. Search ranks both rails the same way.
+- **Drag a card onto a well.** Real HTML5 drag-and-drop: the bezel lights up with “Drop to play on Right” while you hover. The **L**/**R** badges and plain clicks still work for touch and keyboards.
+- **Live thumbnails.** The two playing cards show a tiny live 9×34 copy of the well. Hover (or focus) any other card to see a few cached frames from `/api/preview?id=…`; previews are rendered once on the server and cached.
+- **The library is virtualized.** Only the cards in view (plus a small overscan) exist in the DOM, so 872 × 2 cards scroll smoothly, and favorites / assign / focus changes patch individual cards instead of rebuilding the list. ↑/↓ moves between cards.
+- **Groups reorder and rename.** Drag a bubble to reorder (or Alt+← / Alt+→ on its name), click ✎ or double-click the name to rename inline. Both persist through the library file.
 
 ### What's new in 2.5.0
 

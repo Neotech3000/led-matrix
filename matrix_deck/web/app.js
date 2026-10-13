@@ -380,9 +380,9 @@ function setFocus(side, { rebuild = true } = {}) {
 
 function updateRailLabels() {
   if (railLeftLabel) {
-    railLeftLabel.textContent = narrow ? `Library · tap sends to ${sideLabel(focus)}` : "Left well";
+    railLeftLabel.textContent = narrow ? `Library · tap sends to ${sideLabel(focus)}` : "Left well · click plays here";
   }
-  if (railRightLabel) railRightLabel.textContent = "Right well";
+  if (railRightLabel) railRightLabel.textContent = "Right well · click plays here";
   if (railRight) railRight.hidden = narrow;
 }
 
@@ -410,6 +410,9 @@ function mergeGroups(serverGroups) {
   }
   if (confirmDeleteGroup && !groups.some((group) => group.id === confirmDeleteGroup)) {
     confirmDeleteGroup = "";
+  }
+  if (renamingGroup && !groups.some((group) => group.id === renamingGroup)) {
+    renamingGroup = "";
   }
 }
 
@@ -606,26 +609,50 @@ function acceptSearch(assignIt) {
   if (assignIt) assign(focus, match.id);
 }
 
+const ROW_GAP = 8;
+const OVERSCAN = 6;
+const THUMB_W = 18;
+const THUMB_H = 68;
+const THUMB_FRAME_MS = 500;
+const rails = {
+  left: makeRail(libraryLeft, "left"),
+  right: makeRail(libraryRight, "right"),
+};
+const previewCache = new Map();
+let hoverThumb = null;
+let dragKind = "";
+let dragId = "";
+let dragGroupId = "";
+let renamingGroup = "";
+let windowRaf = 0;
+
+function makeRail(root, side) {
+  return { root, side, items: [], clickSide: side, searching: false, topId: null, cards: new Map(), start: -1, end: -1 };
+}
+
+function cardHeight() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--card-h");
+  const px = parseFloat(raw);
+  return Number.isFinite(px) && px > 0 ? px : 92;
+}
+
+function rowHeight() {
+  return cardHeight() + ROW_GAP;
+}
+
 function renderLibrary() {
   if (!catalog.length) return;
   const q = searchQuery.trim();
+  const items = q ? rankedCatalog().map((row) => row.item) : visibleCatalog();
   if (narrow) {
     // One merged list under the wells; cards go to the focused well, L/R badges pick a side.
-    const items = q ? rankedCatalog().map((row) => row.item) : visibleCatalog();
-    fillLibrary(libraryLeft, items, null, !!q);
-    libraryRight.innerHTML = "";
+    setRail(rails.left, items, null, !!q);
+    setRail(rails.right, [], "right", false);
     return;
   }
-  if (!q) {
-    const items = visibleCatalog();
-    const mid = Math.ceil(items.length / 2);
-    fillLibrary(libraryLeft, items.slice(0, mid), "left");
-    fillLibrary(libraryRight, items.slice(mid), "right");
-    return;
-  }
-  const items = rankedCatalog().map((row) => row.item);
-  fillLibrary(libraryLeft, items, "left", true);
-  fillLibrary(libraryRight, items, "right", true);
+  // Both rails carry the whole filtered catalog. The rail is the target well.
+  setRail(rails.left, items, "left", !!q);
+  setRail(rails.right, items, "right", !!q);
 }
 
 function playingCaption(leftOn, rightOn) {
@@ -635,127 +662,402 @@ function playingCaption(leftOn, rightOn) {
   return "";
 }
 
-function fillLibrary(root, items, clickSide, searching = false) {
-  root.innerHTML = "";
+function setRail(rail, items, clickSide, searching) {
+  rail.items = items;
+  rail.clickSide = clickSide;
+  rail.searching = searching;
+  rail.topId = searching && items[0] ? items[0].id : null;
+  const root = rail.root;
+  const empty = root.querySelector(".empty-search");
   if (!items.length) {
-    if (clickSide === "right" && !searching) return;
-    const empty = document.createElement("p");
-    empty.className = "empty-search";
-    empty.textContent = emptyLibraryMessage();
-    root.appendChild(empty);
+    for (const entry of rail.cards.values()) entry.el.remove();
+    rail.cards.clear();
+    rail.start = rail.end = -1;
+    root.style.height = "";
+    root.classList.remove("virtual");
+    if (!empty) {
+      const message = document.createElement("p");
+      message.className = "empty-search";
+      message.textContent = emptyLibraryMessage();
+      root.appendChild(message);
+    } else {
+      empty.textContent = emptyLibraryMessage();
+    }
     return;
   }
-  const topId = searching && items[0] ? items[0].id : null;
-  for (const item of items) {
-    const card = document.createElement("article");
-    card.className = "card";
-    card.tabIndex = 0;
-    card.setAttribute("role", "button");
-    card.dataset.id = item.id;
-    const leftOn = state.left_anim === item.id;
-    const rightOn = state.right_anim === item.id;
-    if (leftOn || rightOn) card.classList.add("active");
-    if (topId && item.id === topId) card.classList.add("suggest");
-    const target = clickSide || focus;
-    card.setAttribute("aria-label", `${item.name}. ${kindLabel(item.kind)}. Press Enter to play on the ${target} well.`);
+  if (empty) empty.remove();
+  root.classList.add("virtual");
+  root.style.height = `${items.length * rowHeight() - ROW_GAP}px`;
+  renderWindow(rail, true);
+}
 
-    const title = document.createElement("h3");
-    title.textContent = item.name;
-    const caption = playingCaption(leftOn, rightOn);
-    if (caption) {
-      const playing = document.createElement("span");
-      playing.className = "playing";
-      playing.textContent = caption;
-      title.appendChild(playing);
-    }
-    const blurb = document.createElement("p");
-    blurb.textContent = item.description;
-    const badges = document.createElement("div");
-    badges.className = "badges";
-
-    const kind = document.createElement("span");
-    kind.className = "badge kind";
-    kind.textContent = kindLabel(item.kind);
-    badges.appendChild(kind);
-
-    const heart = document.createElement("button");
-    heart.type = "button";
-    const liked = favorites.has(item.id);
-    heart.className = liked ? "heart on" : "heart";
-    heart.textContent = liked ? "♥" : "♡";
-    const filing = !!selectionGroup;
-    const filingRecord = filing ? selectionGroupRecord() : null;
-    heart.title = filing
-      ? liked
-        ? `Unfavorite and remove ${item.name} from the group`
-        : `Favorite and add ${item.name} to the group`
-      : liked
-        ? "Remove favorite"
-        : "Save as favorite";
-    heart.setAttribute("aria-label", liked ? `Unfavorite ${item.name}` : `Favorite ${item.name}`);
-    heart.setAttribute("aria-pressed", liked ? "true" : "false");
-    heart.addEventListener("click", (event) => {
-      event.stopPropagation();
-      toggleHeart(item);
-    });
-    badges.appendChild(heart);
-
-    if (filing) {
-      const inGroup = groupIds(filingRecord).includes(item.id);
-      if (inGroup) card.classList.add("in-group");
-      const plus = document.createElement("button");
-      plus.type = "button";
-      plus.className = inGroup ? "card-add on" : "card-add";
-      plus.textContent = inGroup ? "✓" : "+";
-      plus.title = inGroup
-        ? `Remove ${item.name} from ${filingRecord ? filingRecord.name : "group"}`
-        : `Add ${item.name} to ${filingRecord ? filingRecord.name : "group"}`;
-      plus.setAttribute("aria-label", plus.title);
-      plus.addEventListener("click", (event) => {
-        event.stopPropagation();
-        toggleGroupItem(item, !inGroup);
-      });
-      badges.appendChild(plus);
-    }
-
-    for (const [side, on, label] of [
-      ["left", leftOn, "L"],
-      ["right", rightOn, "R"],
-    ]) {
-      const badge = document.createElement("button");
-      badge.type = "button";
-      badge.className = `badge assign ${on ? "on" : ""}`;
-      badge.textContent = label;
-      badge.title = `Run ${item.name} on the ${side} module`;
-      badge.setAttribute("aria-label", badge.title);
-      badge.setAttribute("aria-pressed", on ? "true" : "false");
-      badge.addEventListener("click", (event) => {
-        event.stopPropagation();
-        assign(side, item.id);
-      });
-      badges.appendChild(badge);
-    }
-
-    card.append(title, blurb, badges);
-    const activate = () => {
-      if (selectionGroup) {
-        const group = selectionGroupRecord();
-        const inGroup = groupIds(group).includes(item.id);
-        toggleGroupItem(item, !inGroup);
-        return;
-      }
-      assign(clickSide || focus, item.id);
-    };
-    card.addEventListener("click", activate);
-    card.addEventListener("keydown", (event) => {
-      if (event.target !== card) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        activate();
-      }
-    });
-    root.appendChild(card);
+function railViewport(rail) {
+  const container = narrow ? null : rail.root.closest(".library-col");
+  const rootTop = rail.root.getBoundingClientRect().top;
+  if (container) {
+    const box = container.getBoundingClientRect();
+    return { from: box.top - rootTop, to: box.bottom - rootTop, container };
   }
+  return { from: -rootTop, to: window.innerHeight - rootTop, container: null };
+}
+
+function renderWindow(rail, force = false) {
+  const items = rail.items;
+  if (!items.length) return;
+  const row = rowHeight();
+  const { from, to } = railViewport(rail);
+  const start = Math.max(0, Math.floor(from / row) - OVERSCAN);
+  const end = Math.min(items.length, Math.ceil(to / row) + OVERSCAN);
+  if (!force && start === rail.start && end === rail.end) return;
+  rail.start = start;
+  rail.end = end;
+  const wanted = new Set();
+  for (let index = start; index < end; index++) {
+    const item = items[index];
+    wanted.add(item.id);
+    ensureCard(rail, item, index, row);
+  }
+  for (const [id, entry] of rail.cards) {
+    if (wanted.has(id)) continue;
+    if (hoverThumb && hoverThumb.card === entry.el) stopHoverThumb();
+    entry.el.remove();
+    rail.cards.delete(id);
+  }
+}
+
+function renderAllWindows() {
+  windowRaf = 0;
+  renderWindow(rails.left);
+  renderWindow(rails.right);
+}
+
+function scheduleWindows() {
+  if (windowRaf) return;
+  windowRaf = requestAnimationFrame(renderAllWindows);
+}
+
+function cardSignature(rail, item) {
+  const leftOn = state.left_anim === item.id;
+  const rightOn = state.right_anim === item.id;
+  const liked = favorites.has(item.id);
+  const filing = !!selectionGroup;
+  const inGroup = filing ? groupIds(selectionGroupRecord()).includes(item.id) : false;
+  const target = rail.clickSide || focus;
+  return `${leftOn}|${rightOn}|${liked}|${filing}|${inGroup}|${rail.topId === item.id}|${target}|${item.name}`;
+}
+
+function ensureCard(rail, item, index, row) {
+  const sig = cardSignature(rail, item);
+  let entry = rail.cards.get(item.id);
+  if (!entry) {
+    const el = buildCard(rail, item);
+    entry = { el, sig };
+    rail.cards.set(item.id, entry);
+    rail.root.appendChild(el);
+  } else if (entry.sig !== sig) {
+    const el = buildCard(rail, item);
+    const hadFocus = document.activeElement === entry.el;
+    entry.el.replaceWith(el);
+    entry.el = el;
+    entry.sig = sig;
+    if (hadFocus) el.focus({ preventScroll: true });
+  }
+  entry.el.dataset.index = String(index);
+  const top = `${index * row}px`;
+  if (entry.el.style.top !== top) entry.el.style.top = top;
+}
+
+function focusCard(rail, index) {
+  const items = rail.items;
+  if (!items.length) return;
+  const clamped = Math.max(0, Math.min(items.length - 1, index));
+  const row = rowHeight();
+  const { from, to, container } = railViewport(rail);
+  const cardTop = clamped * row;
+  const cardBottom = cardTop + row;
+  if (cardTop < from || cardBottom > to) {
+    const delta = cardTop < from ? cardTop - from : cardBottom - to;
+    if (container) container.scrollTop += delta;
+    else window.scrollBy(0, delta);
+    renderWindow(rail, true);
+  }
+  const entry = rail.cards.get(items[clamped].id);
+  if (entry) entry.el.focus({ preventScroll: true });
+}
+
+function drawThumb(canvas, pixels) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) return;
+  ctx.fillStyle = "#07080a";
+  ctx.fillRect(0, 0, THUMB_W, THUMB_H);
+  for (let y = 0; y < HEIGHT; y++) {
+    for (let x = 0; x < WIDTH; x++) {
+      const v = (pixels[y * WIDTH + x] || 0) / 255;
+      if (v < 0.02) continue;
+      ctx.fillStyle = `rgba(255, 244, 208, ${0.25 + v * 0.75})`;
+      ctx.fillRect(x * 2, y * 2, 2, 2);
+    }
+  }
+}
+
+async function loadPreview(id) {
+  if (previewCache.has(id)) return previewCache.get(id);
+  const promise = (async () => {
+    try {
+      const res = await fetch(`/api/preview?id=${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error("preview");
+      const data = await res.json();
+      const frames = Array.isArray(data.frames) ? data.frames : [];
+      previewCache.set(id, frames);
+      return frames;
+    } catch {
+      previewCache.delete(id);
+      return [];
+    }
+  })();
+  previewCache.set(id, promise);
+  return promise;
+}
+
+function isPlaying(id) {
+  return state.left_anim === id || state.right_anim === id;
+}
+
+function stopHoverThumb() {
+  if (!hoverThumb) return;
+  const { card, id, timer } = hoverThumb;
+  if (timer) clearInterval(timer);
+  if (!isPlaying(id)) card.classList.remove("show-thumb");
+  hoverThumb = null;
+}
+
+async function startHoverThumb(card, item) {
+  if (hoverThumb && hoverThumb.card === card) return;
+  stopHoverThumb();
+  if (isPlaying(item.id)) return;
+  const canvas = card.querySelector("canvas.thumb");
+  if (!canvas) return;
+  const token = { card, id: item.id, timer: 0 };
+  hoverThumb = token;
+  const frames = await loadPreview(item.id);
+  if (hoverThumb !== token || !frames.length) return;
+  let index = 0;
+  drawThumb(canvas, frames[0]);
+  card.classList.add("show-thumb");
+  if (frames.length > 1) {
+    token.timer = window.setInterval(() => {
+      index = (index + 1) % frames.length;
+      drawThumb(canvas, frames[index]);
+    }, THUMB_FRAME_MS);
+  }
+}
+
+function drawPlayingThumbs() {
+  for (const rail of [rails.left, rails.right]) {
+    for (const side of ["left", "right"]) {
+      const id = state[`${side}_anim`];
+      const entry = rail.cards.get(id);
+      if (!entry) continue;
+      if (side === "right" && state.left_anim === id) continue;
+      const canvas = entry.el.querySelector("canvas.thumb");
+      if (!canvas) continue;
+      entry.el.classList.add("show-thumb");
+      drawThumb(canvas, lastPixels[side]);
+    }
+  }
+}
+
+function clearDropTargets() {
+  document.querySelectorAll(".module.drop-hover").forEach((mod) => mod.classList.remove("drop-hover"));
+  document.body.classList.remove("dragging-card");
+}
+
+function buildCard(rail, item) {
+  const clickSide = rail.clickSide;
+  const card = document.createElement("article");
+  card.className = "card";
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.dataset.id = item.id;
+  card.draggable = true;
+  const leftOn = state.left_anim === item.id;
+  const rightOn = state.right_anim === item.id;
+  if (leftOn || rightOn) card.classList.add("active", "show-thumb");
+  if (rail.topId && item.id === rail.topId) card.classList.add("suggest");
+  const target = clickSide || focus;
+  card.setAttribute("aria-label", `${item.name}. ${kindLabel(item.kind)}. Press Enter to play on the ${target} well. Drag onto a well to play it there.`);
+
+  const thumb = document.createElement("canvas");
+  thumb.className = "thumb";
+  thumb.width = THUMB_W;
+  thumb.height = THUMB_H;
+  thumb.setAttribute("aria-hidden", "true");
+  if (leftOn || rightOn) drawThumb(thumb, lastPixels[leftOn ? "left" : "right"]);
+
+  const body = document.createElement("div");
+  body.className = "card-body";
+
+  const title = document.createElement("h3");
+  const name = document.createElement("span");
+  name.className = "card-name";
+  name.textContent = item.name;
+  title.appendChild(name);
+  const caption = playingCaption(leftOn, rightOn);
+  if (caption) {
+    const playing = document.createElement("span");
+    playing.className = "playing";
+    playing.textContent = caption;
+    title.appendChild(playing);
+  }
+  const blurb = document.createElement("p");
+  blurb.textContent = item.description;
+  const badges = document.createElement("div");
+  badges.className = "badges";
+
+  const kind = document.createElement("span");
+  kind.className = "badge kind";
+  kind.textContent = kindLabel(item.kind);
+  badges.appendChild(kind);
+
+  const heart = document.createElement("button");
+  heart.type = "button";
+  const liked = favorites.has(item.id);
+  heart.className = liked ? "heart on" : "heart";
+  heart.textContent = liked ? "♥" : "♡";
+  const filing = !!selectionGroup;
+  const filingRecord = filing ? selectionGroupRecord() : null;
+  heart.title = filing
+    ? liked
+      ? `Unfavorite and remove ${item.name} from the group`
+      : `Favorite and add ${item.name} to the group`
+    : liked
+      ? "Remove favorite"
+      : "Save as favorite";
+  heart.setAttribute("aria-label", liked ? `Unfavorite ${item.name}` : `Favorite ${item.name}`);
+  heart.setAttribute("aria-pressed", liked ? "true" : "false");
+  heart.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleHeart(item);
+  });
+  badges.appendChild(heart);
+
+  if (filing) {
+    const inGroup = groupIds(filingRecord).includes(item.id);
+    if (inGroup) card.classList.add("in-group");
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.className = inGroup ? "card-add on" : "card-add";
+    plus.textContent = inGroup ? "✓" : "+";
+    plus.title = inGroup
+      ? `Remove ${item.name} from ${filingRecord ? filingRecord.name : "group"}`
+      : `Add ${item.name} to ${filingRecord ? filingRecord.name : "group"}`;
+    plus.setAttribute("aria-label", plus.title);
+    plus.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleGroupItem(item, !inGroup);
+    });
+    badges.appendChild(plus);
+  }
+
+  for (const [side, on, label] of [
+    ["left", leftOn, "L"],
+    ["right", rightOn, "R"],
+  ]) {
+    const badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = `badge assign ${on ? "on" : ""}`;
+    badge.textContent = label;
+    badge.title = `Run ${item.name} on the ${side} module`;
+    badge.setAttribute("aria-label", badge.title);
+    badge.setAttribute("aria-pressed", on ? "true" : "false");
+    badge.addEventListener("click", (event) => {
+      event.stopPropagation();
+      assign(side, item.id);
+    });
+    badges.appendChild(badge);
+  }
+
+  body.append(title, blurb, badges);
+  card.append(thumb, body);
+  const activate = () => {
+    if (selectionGroup) {
+      const group = selectionGroupRecord();
+      const inGroup = groupIds(group).includes(item.id);
+      toggleGroupItem(item, !inGroup);
+      return;
+    }
+    assign(clickSide || focus, item.id);
+  };
+  card.addEventListener("click", activate);
+  card.addEventListener("keydown", (event) => {
+    if (event.target !== card) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      activate();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const index = Number(card.dataset.index || 0);
+      focusCard(rail, index + (event.key === "ArrowDown" ? 1 : -1));
+    }
+  });
+  card.addEventListener("pointerenter", () => startHoverThumb(card, item));
+  card.addEventListener("pointerleave", () => {
+    if (hoverThumb && hoverThumb.card === card) stopHoverThumb();
+  });
+  card.addEventListener("focus", () => startHoverThumb(card, item));
+  card.addEventListener("blur", () => {
+    if (hoverThumb && hoverThumb.card === card && !card.matches(":hover")) stopHoverThumb();
+  });
+  card.addEventListener("dragstart", (event) => {
+    dragKind = "card";
+    dragId = item.id;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "copy";
+      event.dataTransfer.setData("text/plain", item.id);
+      event.dataTransfer.setData("application/x-ledmatrix-anim", item.id);
+    }
+    card.classList.add("dragging");
+    document.body.classList.add("dragging-card");
+  });
+  card.addEventListener("dragend", () => {
+    card.classList.remove("dragging");
+    dragKind = "";
+    dragId = "";
+    clearDropTargets();
+  });
+  return card;
+}
+
+function bindDropTargets() {
+  document.querySelectorAll(".module").forEach((mod) => {
+    const side = mod.dataset.side === "right" ? "right" : "left";
+    mod.addEventListener("dragenter", (event) => {
+      if (dragKind !== "card") return;
+      event.preventDefault();
+      mod.classList.add("drop-hover");
+    });
+    mod.addEventListener("dragover", (event) => {
+      if (dragKind !== "card") return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      mod.classList.add("drop-hover");
+    });
+    mod.addEventListener("dragleave", (event) => {
+      if (mod.contains(event.relatedTarget)) return;
+      mod.classList.remove("drop-hover");
+    });
+    mod.addEventListener("drop", (event) => {
+      if (dragKind !== "card") return;
+      event.preventDefault();
+      const id = (event.dataTransfer && event.dataTransfer.getData("application/x-ledmatrix-anim")) || dragId;
+      clearDropTargets();
+      dragKind = "";
+      dragId = "";
+      if (id) assign(side, id);
+    });
+  });
 }
 
 function post(path, body) {
@@ -898,7 +1200,7 @@ async function toggleGroupItem(item, on) {
 
 function maybeRenderGroups(force = false) {
   if (!force && document.querySelector(".group-composer")) return;
-  const key = `${groupsStatus}|${activeGroup}|${selectionGroup}|${confirmDeleteGroup}|${randomGroup || ""}|${groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(",")}`;
+  const key = `${groupsStatus}|${activeGroup}|${selectionGroup}|${confirmDeleteGroup}|${renamingGroup}|${randomGroup || ""}|${groups.map((group) => `${group.id}:${group.name}:${(group.ids || []).join("+")}`).join(",")}`;
   if (!force && key === lastGroupUiKey) return;
   lastGroupUiKey = key;
   renderGroups();
@@ -987,14 +1289,119 @@ function renderGroups() {
       continue;
     }
 
+    if (renamingGroup === group.id) {
+      bubble.classList.add("renaming");
+      const form = document.createElement("form");
+      form.className = "group-composer rename";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.maxLength = 40;
+      input.value = group.name;
+      input.setAttribute("aria-label", `Rename ${group.name}`);
+      const save = document.createElement("button");
+      save.type = "submit";
+      save.textContent = "Save";
+      form.append(input, save);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        renameGroup(group, input.value);
+      });
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          renamingGroup = "";
+          lastGroupUiKey = "";
+          maybeRenderGroups(true);
+        }
+      });
+      bubble.appendChild(form);
+      row.appendChild(bubble);
+      queueMicrotask(() => {
+        input.focus();
+        input.select();
+      });
+      continue;
+    }
+
+    bubble.draggable = true;
+    bubble.addEventListener("dragstart", (event) => {
+      dragKind = "group";
+      dragGroupId = group.id;
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("application/x-ledmatrix-group", group.id);
+        event.dataTransfer.setData("text/plain", group.name);
+      }
+      bubble.classList.add("dragging");
+    });
+    bubble.addEventListener("dragend", () => {
+      bubble.classList.remove("dragging");
+      dragKind = "";
+      dragGroupId = "";
+      groupsEl.querySelectorAll(".group-bubble.drop-before, .group-bubble.drop-after").forEach((el) => {
+        el.classList.remove("drop-before", "drop-after");
+      });
+    });
+    bubble.addEventListener("dragover", (event) => {
+      if (dragKind !== "group" || dragGroupId === group.id) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      const box = bubble.getBoundingClientRect();
+      const before = event.clientX < box.left + box.width / 2;
+      bubble.classList.toggle("drop-before", before);
+      bubble.classList.toggle("drop-after", !before);
+    });
+    bubble.addEventListener("dragleave", (event) => {
+      if (bubble.contains(event.relatedTarget)) return;
+      bubble.classList.remove("drop-before", "drop-after");
+    });
+    bubble.addEventListener("drop", (event) => {
+      if (dragKind !== "group") return;
+      event.preventDefault();
+      const movedId = (event.dataTransfer && event.dataTransfer.getData("application/x-ledmatrix-group")) || dragGroupId;
+      const before = bubble.classList.contains("drop-before");
+      bubble.classList.remove("drop-before", "drop-after");
+      dragKind = "";
+      dragGroupId = "";
+      if (movedId && movedId !== group.id) moveGroup(movedId, group.id, before);
+    });
+
     const select = document.createElement("button");
     select.type = "button";
     select.className = "group-select";
     select.textContent = `${group.name} · ${(group.ids || []).length}`;
-    select.title = `Show ${group.name}`;
+    select.title = `Show ${group.name}. Double-click to rename. Alt+← / Alt+→ to reorder.`;
     select.setAttribute("aria-pressed", activeGroup === group.id ? "true" : "false");
     select.addEventListener("click", () => {
       openGroupView(group.id);
+    });
+    select.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      beginRename(group.id);
+    });
+    select.addEventListener("keydown", (event) => {
+      if (!event.altKey || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+      event.preventDefault();
+      const index = groups.findIndex((row) => row.id === group.id);
+      const target = index + (event.key === "ArrowLeft" ? -1 : 1);
+      if (index < 0 || target < 0 || target >= groups.length) return;
+      moveGroup(group.id, groups[target].id, event.key === "ArrowLeft");
+      queueMicrotask(() => {
+        const btn = groupsEl.querySelector(`.group-bubble[data-group-id="${group.id}"] .group-select`);
+        if (btn) btn.focus();
+      });
+    });
+
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "group-rename";
+    rename.textContent = "✎";
+    rename.title = `Rename ${group.name}`;
+    rename.setAttribute("aria-label", rename.title);
+    rename.addEventListener("click", (event) => {
+      event.stopPropagation();
+      beginRename(group.id);
     });
 
     const add = document.createElement("button");
@@ -1048,7 +1455,7 @@ function renderGroups() {
       maybeRenderGroups();
     });
 
-    bubble.append(select, add, rand, del);
+    bubble.append(select, rename, add, rand, del);
     row.appendChild(bubble);
   }
 
@@ -1096,6 +1503,61 @@ function renderGroups() {
       groupsEl.appendChild(banner);
     }
   }
+}
+
+function libraryPayload() {
+  return {
+    favorites: [...favorites],
+    groups: groups.map((group) => ({ id: group.id, name: group.name, ids: (group.ids || []).slice() })),
+  };
+}
+
+async function saveLibrary(successText) {
+  const data = await postJson("/api/library", libraryPayload());
+  if (data) {
+    applyLibrary(data);
+    if (successText) toast(successText);
+  } else {
+    await loadLibrary();
+  }
+  lastLibKey = "";
+  lastGroupUiKey = "";
+  maybeRenderGroups(true);
+  maybeRenderLibrary();
+}
+
+function beginRename(groupId) {
+  renamingGroup = groupId;
+  confirmDeleteGroup = "";
+  lastGroupUiKey = "";
+  maybeRenderGroups(true);
+}
+
+async function renameGroup(group, rawName) {
+  const name = String(rawName || "").trim().slice(0, 40);
+  renamingGroup = "";
+  if (!name || name === group.name) {
+    lastGroupUiKey = "";
+    maybeRenderGroups(true);
+    return;
+  }
+  const previous = group.name;
+  const record = groups.find((row) => row.id === group.id);
+  if (record) record.name = name;
+  await saveLibrary(`Renamed ${previous} to ${name}`);
+}
+
+async function moveGroup(movedId, targetId, before) {
+  const from = groups.findIndex((row) => row.id === movedId);
+  const to = groups.findIndex((row) => row.id === targetId);
+  if (from < 0 || to < 0 || from === to) return;
+  const next = groups.slice();
+  const [moved] = next.splice(from, 1);
+  let insertAt = next.findIndex((row) => row.id === targetId);
+  if (!before) insertAt += 1;
+  next.splice(insertAt, 0, moved);
+  groups = next;
+  await saveLibrary(`Moved ${moved.name}`);
 }
 
 function beginNewGroup() {
@@ -1484,6 +1946,7 @@ async function tick() {
     }
     drawMatrix(leftCtx, leftCanvas, lastPixels.left);
     drawMatrix(rightCtx, rightCanvas, lastPixels.right);
+    drawPlayingThumbs();
     const leftLabel = animName(data.left_anim);
     const rightLabel = animName(data.right_anim);
     if (leftName.textContent !== leftLabel) leftName.textContent = leftLabel;
@@ -1832,6 +2295,17 @@ function onNarrowChange(event) {
   lastLibKey = "";
   maybeRenderLibrary();
 }
+
+document.querySelectorAll(".library-col").forEach((col) => {
+  col.addEventListener("scroll", scheduleWindows, { passive: true });
+});
+window.addEventListener("scroll", scheduleWindows, { passive: true });
+window.addEventListener("resize", () => {
+  lastLibKey = "";
+  maybeRenderLibrary();
+  scheduleWindows();
+});
+bindDropTargets();
 if (typeof narrowQuery.addEventListener === "function") narrowQuery.addEventListener("change", onNarrowChange);
 else if (typeof narrowQuery.addListener === "function") narrowQuery.addListener(onNarrowChange);
 

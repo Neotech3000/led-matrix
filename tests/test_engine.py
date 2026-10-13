@@ -91,6 +91,67 @@ class EngineTests(unittest.TestCase):
             httpd.shutdown()
             httpd.server_close()
 
+    def test_preview_endpoint_returns_cached_frames(self):
+        from matrix_deck.server import _PREVIEW_CACHE, render_preview
+
+        _PREVIEW_CACHE.clear()
+        deck = Deck()
+        httpd, base = _serve(deck)
+        try:
+            status, raw = _get(f"{base}/api/preview?id=fishtank")
+            self.assertEqual(status, 200)
+            data = json.loads(raw)
+            self.assertEqual(data["id"], "fishtank")
+            self.assertEqual((data["width"], data["height"]), (9, 34))
+            self.assertEqual(len(data["frames"]), 4)
+            for frame in data["frames"]:
+                self.assertEqual(len(frame), 9 * 34)
+                self.assertTrue(all(0 <= v <= 255 for v in frame))
+            self.assertGreater(sum(data["frames"][0]), 0)
+            self.assertIs(render_preview("fishtank"), render_preview("fishtank"))
+            self.assertIn("fishtank", _PREVIEW_CACHE)
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                _get(f"{base}/api/preview?id=no-such-anim")
+            self.assertEqual(ctx.exception.code, 404)
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                _get(f"{base}/api/preview")
+            self.assertEqual(ctx.exception.code, 404)
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+        self.assertIsNone(render_preview(""))
+        self.assertIsNone(render_preview("gm-react-star"))
+
+    def test_library_replace_reorders_and_renames_groups(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                first = deck.add_group("Desk mix")["group"]
+                second = deck.add_group("Night")["group"]
+                httpd, base = _serve(deck)
+                try:
+                    status, data = _post(
+                        f"{base}/api/library",
+                        {
+                            "favorites": ["fire"],
+                            "groups": [
+                                {"id": second["id"], "name": "Late night", "ids": ["fire", "warp"]},
+                                {"id": first["id"], "name": "Desk mix", "ids": []},
+                            ],
+                        },
+                    )
+                finally:
+                    httpd.shutdown()
+                    httpd.server_close()
+                self.assertEqual(status, 200)
+                self.assertTrue(data["ok"])
+                self.assertEqual([g["id"] for g in data["groups"]], [second["id"], first["id"]])
+                self.assertEqual(data["groups"][0]["name"], "Late night")
+                self.assertEqual(data["favorites"], ["fire"])
+                other = Deck()
+                other.load_library()
+                self.assertEqual([g["name"] for g in other.groups], ["Late night", "Desk mix"])
+
     def test_can_switch_animations(self):
         deck = Deck(fps=20)
         deck.set_animation("left", "fire")
@@ -320,8 +381,14 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.5.0", html)
+        self.assertIn("?v=2.6.0", html)
         self.assertNotIn("?v=2.4.1", html)
+        self.assertNotIn("?v=2.5.0", html)
+        # 2.6.0 UI: drop overlays on both bezels; rails are target wells.
+        self.assertIn('id="left-drop"', html)
+        self.assertIn('id="right-drop"', html)
+        self.assertIn("Drop to play on Right", html)
+        self.assertIn("Left well · click plays here", html)
         self.assertNotIn("<h1>", html)
         # 2.5.0 UI: labels, help sheet, toasts, first-run hint, focusable chips.
         self.assertIn('id="brightness-value"', html)
@@ -450,7 +517,29 @@ class EngineTests(unittest.TestCase):
         self.assertIn('card.setAttribute("role", "button")', js)
         self.assertIn("card.tabIndex = 0", js)
         self.assertIn("max-width: 980px", js)
+        # 2.6.0: virtualized rails, drag-and-drop, thumbnails, group reorder/rename.
+        self.assertIn("/api/preview", js)
+        self.assertIn("function renderWindow(", js)
+        self.assertIn("OVERSCAN", js)
+        self.assertIn("cardSignature", js)
+        self.assertIn("card.draggable = true", js)
+        self.assertIn("application/x-ledmatrix-anim", js)
+        self.assertIn("application/x-ledmatrix-group", js)
+        self.assertIn("bindDropTargets", js)
+        self.assertIn("drawPlayingThumbs", js)
+        self.assertIn("startHoverThumb", js)
+        self.assertIn("function moveGroup(", js)
+        self.assertIn("function renameGroup(", js)
+        self.assertIn('postJson("/api/library"', js)
+        self.assertIn("setRail(rails.right, items,", js)
+        self.assertNotIn("items.slice(0, mid)", js)
         css = (WEB_ROOT / "style.css").read_text()
+        self.assertIn("--card-h", css)
+        self.assertIn(".library.virtual", css)
+        self.assertIn(".drop-overlay", css)
+        self.assertIn(".card .thumb", css)
+        self.assertIn(".group-rename", css)
+        self.assertIn(".group-bubble.drop-before", css)
         self.assertIn("--bg: #000", css)
         self.assertIn(":focus-visible", css)
         self.assertIn("prefers-reduced-motion", css)
