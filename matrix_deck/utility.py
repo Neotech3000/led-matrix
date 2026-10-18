@@ -805,6 +805,55 @@ class CpuPulse(Utility):
             canvas.blend(x, HEIGHT - 1 - h, 255)
 
 
+class SoundBar(Utility):
+    id = "sound-bar"
+    name = "Sound bar"
+    description = "Equalizer meters that follow the laptop's real sound levels."
+
+    def __init__(self) -> None:
+        self.t = 0.0
+        self.heights = [8.0] * WIDTH
+        self.peaks = [8.0] * WIDTH
+        self.live = False
+        self.source = "sim"
+
+    def info(self) -> dict:
+        return {
+            "live": self.live,
+            "source": self.source,
+            "bars": [round(h / HEIGHT, 3) for h in self.heights],
+        }
+
+    def step(self, dt: float, canvas: Canvas) -> None:
+        from matrix_deck.audio import peek_levels
+
+        self.t += max(0.0, dt)
+        bands, live, source = peek_levels(self.t)
+        self.live = live
+        self.source = source
+        canvas.clear(0)
+        attack = min(1.0, dt * 14)
+        fall = min(1.0, dt * 6)
+        peak_fall = 22.0 * max(0.0, dt)
+        for x, level in enumerate(bands):
+            target = 3 + (HEIGHT - 4) * max(0.0, min(1.0, level))
+            if target > self.heights[x]:
+                self.heights[x] += (target - self.heights[x]) * attack
+            else:
+                self.heights[x] += (target - self.heights[x]) * fall
+            if self.heights[x] > self.peaks[x]:
+                self.peaks[x] = self.heights[x]
+            else:
+                self.peaks[x] = max(self.heights[x], self.peaks[x] - peak_fall)
+            h = max(1, int(round(self.heights[x])))
+            for y in range(HEIGHT - h, HEIGHT):
+                dist = (y - (HEIGHT - h)) / max(1, h)
+                canvas.set(x, y, _clamp(70 + 185 * dist))
+            canvas.set(x, max(0, HEIGHT - 1 - int(round(self.peaks[x]))), 255)
+        if live:
+            canvas.blend(4, 0, 90)
+
+
 class MoonPhase(Utility):
     id = "moon-phase"
     name = "Moon phase"
@@ -1230,6 +1279,7 @@ def factories() -> dict[str, type[Animation]]:
         "tap-tempo": TapTempo,
         "battery-bar": BatteryBar,
         "cpu-pulse": CpuPulse,
+        "sound-bar": SoundBar,
         "moon-phase": MoonPhase,
         "dice": Dice,
         "coin-flip": CoinFlip,

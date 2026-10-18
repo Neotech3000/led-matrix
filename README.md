@@ -133,6 +133,10 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - The live preview stays in the **middle**; the catalog is split left/right of it.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
 
+### What's new in 2.8.3
+
+- **Sound bar** is a live equalizer: nine meters follow the laptop's actual sound, not a fake bounce. Linux taps the Pulse/PipeWire playback monitor, Windows uses WASAPI loopback, macOS uses the default input (mic, or a loopback device if that is the default). If nothing can be opened it moves like **Equalizer** until a tap is found. Utility chip.
+
 ### What's new in 2.8.2
 
 - **Windows**, **Linux**, **Arch**, and **Mac** are their own type chips, not under Omarchy. Omarchy stays the 28 screensaver wells.
@@ -208,11 +212,11 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 | **ECG** | A scrolling EKG trace (no heart icon). |
 | **Hearts** | Lots of falling hearts. |
 
-**Utilities** (the Utility chip): Clock, Timer, Pomodoro (25/5), Stopwatch, UTC, Date, Week number, Fuzzy clock (FIVE PAST), Binary clock, Seconds bar, Alarm (flash at :00), Tap tempo, Battery, CPU pulse, Moon phase, Dice, Coin flip, Progress, Chess clock, Breath pacer (box 4-4-4-4), Water reminder, Focus bar, plus about eighty more timers, dice, calendars, reminders, and converters.
+**Utilities** (the Utility chip): Clock, Timer, Pomodoro (25/5), Stopwatch, UTC, Date, Week number, Fuzzy clock (FIVE PAST), Binary clock, Seconds bar, Alarm (flash at :00), Tap tempo, Battery, CPU pulse, **Sound bar** (live EQ from the laptop), Moon phase, Dice, Coin flip, Progress, Chess clock, Breath pacer (box 4-4-4-4), Water reminder, Focus bar, plus about eighty more timers, dice, calendars, reminders, and converters.
 
 Each type is limited to **about 100** unique animations: **loop**, **game**, **sketch** (Draw), **utility**, **weather**, **music**, **puzzle**, **status**, and **ambient**. **Omarchy** is a smaller screensaver pack. **Windows**, **Linux**, **Arch**, and **Mac** are OS marks. Favorites is only a filter.
 
-There are **904** animations. Click a well, then use the keyboard for games and timers. The catalog drops strobes and whole-well flashes (lightning, TV static, react-to-flash games, kick-punch music) so a well is less likely to trigger photosensitive epilepsy.
+There are **905** animations. Click a well, then use the keyboard for games and timers. The catalog drops strobes and whole-well flashes (lightning, TV static, react-to-flash games, kick-punch music) so a well is less likely to trigger photosensitive epilepsy.
 
 ## If left and right are swapped
 

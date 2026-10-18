@@ -300,6 +300,7 @@ function utilityHint(id, info) {
     "tap-tempo": `${info.bpm || 0} BPM · ${UTILITY_KEYS["tap-tempo"]}`,
     "battery-bar": `${info.percent ?? "?"} percent${info.live ? "" : " (simulated)"}`,
     "cpu-pulse": `Load ${info.load ?? "sim"} · nine bars`,
+    "sound-bar": info.live ? `Live ${info.source || "audio"} · follows the laptop` : "Waiting for a sound tap · moves like Equalizer until then",
     "moon-phase": `${info.phase || ""} · real synodic phase`,
     dice: `Rolled ${info.value ?? 6} · ${UTILITY_KEYS.dice}`,
     "coin-flip": `${info.side || "heads"} · ${UTILITY_KEYS["coin-flip"]}`,

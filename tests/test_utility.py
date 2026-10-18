@@ -22,6 +22,7 @@ UTILITIES = [
     "tap-tempo",
     "battery-bar",
     "cpu-pulse",
+    "sound-bar",
     "moon-phase",
     "dice",
     "coin-flip",
