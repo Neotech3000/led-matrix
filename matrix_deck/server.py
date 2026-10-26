@@ -288,6 +288,14 @@ class DeckHandler(SimpleHTTPRequestHandler):
                 return
             self._json(200, {"ok": True, "scene": scene, **self.deck.scenes_data()})
             return
+        if path == "/api/reload":
+            info = self.deck.reload_hardware()
+            self._json(200, {"ok": True, "hardware": info, "swapWells": info["swap"]})
+            return
+        if path == "/api/swap":
+            info = self.deck.toggle_swap()
+            self._json(200, {"ok": True, "hardware": info, "swapWells": info["swap"]})
+            return
         if path == "/api/idle":
             enabled = payload.get("enabled")
             minutes = payload.get("minutes")

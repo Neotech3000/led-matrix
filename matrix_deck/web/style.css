@@ -33,6 +33,8 @@
 button.heart:focus-visible,
 button.card-add:focus-visible,
 .type-filter:focus-visible,
+.reload-btn:focus-visible,
+.swap-btn:focus-visible,
 .random-btn:focus-visible,
 .help-btn:focus-visible,
 .search-fill:focus-visible,
@@ -201,6 +203,8 @@ body.offline .pill { color: var(--dim); }
 }
 .type-filter,
 .random-btn,
+.reload-btn,
+.swap-btn,
 .help-btn,
 .card,
 .badge.assign,
@@ -312,6 +316,30 @@ body.dimmed .bezel { opacity: 0.82; transition: opacity 1000ms ease; }
   border-color: var(--accent-75);
   color: var(--ink);
   background: var(--accent-soft);
+}
+.reload-btn,
+.swap-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.reload-btn:hover,
+.swap-btn:hover { border-color: var(--accent-55); color: var(--ink); }
+.swap-btn.on {
+  border-color: var(--accent-75);
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+.reload-btn:disabled,
+.swap-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .workspace {

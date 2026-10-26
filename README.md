@@ -133,6 +133,11 @@ That removes the `led-matrix` launcher, the app-menu entry, and the icon. It doe
 - The live preview stays in the **middle**; the catalog is split left/right of it.
 - **Omarchy themes:** on Omarchy/Arch the control chrome (buttons, type chips, group bubbles, hearts, sliders, selection, focus rings) follows the active theme in `~/.config/omarchy/current/theme` or `~/.local/state/omarchy/current/theme`. Colors come from `colors.toml`, or from Alacritty / Kitty / Waybar when that file is missing. Switching themes updates the window live — no restart. **The app background stays black**; theme wallpaper and light theme backgrounds are not painted onto the page. Without Omarchy (Windows, macOS, a plain VM) the UI keeps the original amber accents.
 
+### What's new in 2.8.4
+
+- **Reload** rediscovers the LED modules and refreshes the window — use it if a well goes blank, the app looks stuck, or you unplugged and moved the matrices.
+- **Swap L/R** flips which physical module is Left and which is Right if detection got it backwards. It sticks in `library.json` so the next launch keeps it. `--swap` on the command line does the same.
+
 ### What's new in 2.8.3
 
 - **Sound bar** is a live equalizer: nine meters follow the laptop's actual sound, not a fake bounce. Linux taps the Pulse/PipeWire playback monitor, Windows uses WASAPI loopback, macOS uses the default input (mic, or a loopback device if that is the default). If nothing can be opened it moves like **Equalizer** until a tap is found. Utility chip.
@@ -220,7 +225,9 @@ There are **905** animations. Click a well, then use the keyboard for games and 
 
 ## If left and right are swapped
 
-The app treats the **first** discovered port as the **right** well and the second as the **left** (that matches Linux ACM / by-path order on a Framework 16). Windows COM numbers and macOS `cu.usbmodem*` names can come up in a different order. Close the app and run:
+The app treats the **first** discovered port as the **right** well and the second as the **left** (that matches Linux ACM / by-path order on a Framework 16). Windows COM numbers and macOS `cu.usbmodem*` names can come up in a different order.
+
+Click **Swap L/R** in the top bar. That flips the two modules and remembers it. **Reload** rediscovers USB if you just moved them. You can still force it from the terminal:
 
 ```bash
 python3 -m matrix_deck --swap

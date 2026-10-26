@@ -73,6 +73,8 @@ const GLOBAL_KEYS = [
   ["2", "Send keys to the right well"],
   ["F", "Favorite or unfavorite what the focused well is playing"],
   ["?", "Open or close this sheet"],
+  ["Reload", "Rediscover the LED modules and refresh this window"],
+  ["Swap L/R", "Switch which module is Left and which is Right"],
   ["Esc", "Close this sheet, leave selection mode, or clear search"],
   ["Tab / Enter", "In search: Tab fills the best match, Enter plays it on the focused well"],
   ["Enter / Space", "On a card: play it on the focused well"],
@@ -99,6 +101,8 @@ const speedEl = document.getElementById("speed");
 const brightnessValue = document.getElementById("brightness-value");
 const speedValue = document.getElementById("speed-value");
 const randomBtn = document.getElementById("random-btn");
+const reloadBtn = document.getElementById("reload-btn");
+const swapBtn = document.getElementById("swap-btn");
 const helpBtn = document.getElementById("help-btn");
 const helpSheet = document.getElementById("help-sheet");
 const helpBody = document.getElementById("help-body");
@@ -2156,7 +2160,7 @@ function continueDraw(event) {
 
 function onDocPointerDown(event) {
   if (helpOpen()) return;
-  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .selection-done, .selection-bar, .filing-banner, input, textarea, button, label, .meter, .random-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select, .scenes, .scene-chip, .scene-composer, .idle-ctl, .module-tools, .first-run, .toasts, .sheet-scrim")) {
+  if (event.target && event.target.closest && event.target.closest(".card, .badge, .heart, .card-add, .group-add, .selection-done, .selection-bar, .filing-banner, input, textarea, button, label, .meter, .random-btn, .reload-btn, .swap-btn, .search-wrap, .search-fill, .type-filter, .type-filters, .stage-tools, .groups, .group-bubble, .group-new, .group-random, .group-delete, .group-composer, .group-select, .scenes, .scene-chip, .scene-composer, .idle-ctl, .module-tools, .first-run, .toasts, .sheet-scrim")) {
     return;
   }
   if (typeof event.button === "number" && event.button === 1) return;
@@ -2285,6 +2289,7 @@ async function tick() {
       randomBtn.textContent = globalOn ? "Random · on" : "Random";
       randomBtn.setAttribute("aria-pressed", globalOn ? "true" : "false");
     }
+    applySwap(!!data.swapWells);
     const texts = data.text || {};
     showMarqueeFields();
     for (const [side, input] of [
@@ -2338,7 +2343,7 @@ function renderHelp() {
 
   rows.push('<section class="help-section"><h3>How it works</h3>');
   rows.push(
-    "<p>The library is split across the two rails — first half on the left, second half on the right — so each column is half as long. A card plays on the well its rail belongs to; drag it onto either well or use the <strong>L</strong>/<strong>R</strong> badges to send it to the other side. Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once. <strong>Save scene</strong> keeps both wells plus brightness and speed, with an optional daily window. <strong>Idle dim</strong> fades both wells after a quiet spell and any input brings them back. Double-click a slider to reset it.</p>"
+    "<p>The library is split across the two rails — first half on the left, second half on the right — so each column is half as long. A card plays on the well its rail belongs to; drag it onto either well or use the <strong>L</strong>/<strong>R</strong> badges to send it to the other side. Heart a card to favorite it. Click a group name to view it, or its <strong>+</strong> to add many cards at once. <strong>Save scene</strong> keeps both wells plus brightness and speed, with an optional daily window. <strong>Idle dim</strong> fades both wells after a quiet spell and any input brings them back. <strong>Reload</strong> rediscovers the modules and refreshes this window if a well goes blank or you moved them. <strong>Swap L/R</strong> flips which physical module is Left if detection got it backwards — it sticks. Double-click a slider to reset it.</p>"
   );
   rows.push("</section>");
 
@@ -2525,6 +2530,41 @@ speedEl.addEventListener("dblclick", () => {
   post("/api/speed", { value: DEFAULT_SPEED / 100 });
   toast("Speed reset to 1.0×");
 });
+
+function applySwap(on) {
+  if (!swapBtn) return;
+  swapBtn.classList.toggle("on", !!on);
+  swapBtn.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
+if (reloadBtn) {
+  reloadBtn.addEventListener("click", async () => {
+    reloadBtn.disabled = true;
+    toast("Reconnecting modules…");
+    try {
+      await postJson("/api/reload", {});
+    } catch (err) {
+      /* still refresh the window so a stuck UI recovers */
+    }
+    window.location.reload();
+  });
+}
+
+if (swapBtn) {
+  swapBtn.addEventListener("click", async () => {
+    swapBtn.disabled = true;
+    const data = await postJson("/api/swap", {});
+    swapBtn.disabled = false;
+    if (data && data.ok) {
+      applySwap(!!data.swapWells);
+      if (data.hardware) {
+        pill(leftPill, "Left", data.hardware.left);
+        pill(rightPill, "Right", data.hardware.right);
+      }
+      toast(data.swapWells ? "Left and right swapped" : "Left and right back to default");
+    }
+  });
+}
 
 randomBtn.addEventListener("click", () => {
   const on = !randomBtn.classList.contains("on");

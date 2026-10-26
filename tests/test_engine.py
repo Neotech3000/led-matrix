@@ -341,6 +341,102 @@ class EngineTests(unittest.TestCase):
                 self.assertEqual(deck.set_idle(None, 9999)["minutes"], 240)
                 self.assertEqual(deck.set_idle(None, 0)["minutes"], 1)
 
+    def test_swap_wells_flips_hardware_and_persists(self):
+        class FakeHw:
+            def __init__(self, path):
+                self.path = path
+                self.closed = False
+
+            def close(self):
+                self.closed = True
+
+            def draw(self, pixels):
+                pass
+
+            def set_brightness(self, value):
+                pass
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                deck = Deck()
+                left = FakeHw("/dev/left")
+                right = FakeHw("/dev/right")
+                deck.left_hw = left
+                deck.right_hw = right
+                deck.left_status = left.path
+                deck.right_status = right.path
+                info = deck.toggle_swap()
+                self.assertTrue(info["swap"])
+                self.assertIs(deck.left_hw, right)
+                self.assertIs(deck.right_hw, left)
+                self.assertEqual(info["left"], "/dev/right")
+                self.assertEqual(info["right"], "/dev/left")
+                self.assertTrue(deck.snapshot()["swapWells"])
+                raw = json.loads((Path(tmp) / ".local/share/led-matrix/library.json").read_text(encoding="utf-8"))
+                self.assertTrue(raw["settings"]["swapWells"])
+                other = Deck()
+                other.load_library()
+                self.assertTrue(other.swap_wells)
+                deck.toggle_swap()
+                self.assertFalse(deck.swap_wells)
+                self.assertIs(deck.left_hw, left)
+                self.assertIs(deck.right_hw, right)
+
+    def test_reload_and_swap_endpoints(self):
+        from matrix_deck.hardware import MatrixDevice
+
+        class FakeMatrix:
+            def __init__(self, path, flip=False, brightness=180):
+                self.path = path
+                self.flip = flip
+                self.brightness = brightness
+                self.closed = False
+
+            def connect(self):
+                return None
+
+            def close(self):
+                self.closed = True
+
+            def draw(self, pixels):
+                pass
+
+            def set_brightness(self, value):
+                self.brightness = value
+
+            def sleep(self, sleeping=True):
+                return None
+
+        devices = [
+            MatrixDevice(path="/dev/ttyACM0"),
+            MatrixDevice(path="/dev/ttyACM1"),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"HOME": tmp}):
+                with patch("matrix_deck.engine.discover_matrices", return_value=devices):
+                    with patch("matrix_deck.engine.LedMatrix", FakeMatrix):
+                        deck = Deck()
+                        httpd, base = _serve(deck)
+                        try:
+                            status, data = _post(f"{base}/api/reload", {})
+                            self.assertEqual(status, 200)
+                            self.assertTrue(data["ok"])
+                            self.assertEqual(data["hardware"]["right"], "/dev/ttyACM0")
+                            self.assertEqual(data["hardware"]["left"], "/dev/ttyACM1")
+                            self.assertFalse(data["swapWells"])
+                            status, data = _post(f"{base}/api/swap", {})
+                            self.assertEqual(status, 200)
+                            self.assertTrue(data["swapWells"])
+                            self.assertEqual(data["hardware"]["left"], "/dev/ttyACM0")
+                            self.assertEqual(data["hardware"]["right"], "/dev/ttyACM1")
+                            status, raw = _get(f"{base}/api/frame")
+                            self.assertEqual(status, 200)
+                            frame = json.loads(raw)
+                            self.assertTrue(frame["swapWells"])
+                        finally:
+                            httpd.shutdown()
+                            httpd.server_close()
+
     def test_legacy_mirror_settings_are_ignored(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {"HOME": tmp}):
@@ -658,7 +754,7 @@ class EngineTests(unittest.TestCase):
     def test_web_assets_exist(self):
         html = (WEB_ROOT / "index.html").read_text()
         self.assertIn("LED Matrix", html)
-        self.assertIn("?v=2.8.3", html)
+        self.assertIn("?v=2.8.4", html)
         self.assertNotIn("?v=2.4.1", html)
         self.assertNotIn("?v=2.5.0", html)
         self.assertNotIn("?v=2.6.0", html)
@@ -668,6 +764,7 @@ class EngineTests(unittest.TestCase):
         self.assertNotIn("?v=2.8.0", html)
         self.assertNotIn("?v=2.8.1", html)
         self.assertNotIn("?v=2.8.2", html)
+        self.assertNotIn("?v=2.8.3", html)
         self.assertIn('data-kind="omarchy"', html)
         self.assertIn('data-kind="windows"', html)
         self.assertIn('data-kind="linux"', html)
@@ -677,6 +774,10 @@ class EngineTests(unittest.TestCase):
         self.assertIn('id="scenes"', html)
         self.assertIn('id="new-scene"', html)
         self.assertIn('id="idle-btn"', html)
+        self.assertIn('id="reload-btn"', html)
+        self.assertIn('id="swap-btn"', html)
+        self.assertIn("Reload", html)
+        self.assertIn("Swap L/R", html)
         self.assertIn('id="idle-minutes"', html)
         self.assertNotIn('id="left-mirror"', html)
         self.assertNotIn('id="right-mirror"', html)
@@ -848,6 +949,10 @@ class EngineTests(unittest.TestCase):
         self.assertIn("/api/scenes/apply", js)
         self.assertIn("/api/scenes/delete", js)
         self.assertIn("/api/idle", js)
+        self.assertIn("/api/reload", js)
+        self.assertIn("/api/swap", js)
+        self.assertIn('id="reload-btn"', html)
+        self.assertIn("function applySwap(", js)
         self.assertNotIn("/api/mirror", js)
         self.assertIn("function renderScenes(", js)
         self.assertIn("function beginNewScene(", js)
@@ -864,6 +969,8 @@ class EngineTests(unittest.TestCase):
         self.assertIn(".scene-chip", css)
         self.assertIn(".scene-composer", css)
         self.assertIn(".idle-btn", css)
+        self.assertIn(".reload-btn", css)
+        self.assertIn(".swap-btn", css)
         self.assertNotIn(".mirror-btn", css)
         self.assertIn("opacity 1000ms", css)
         self.assertIn("--card-h", css)

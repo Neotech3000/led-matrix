@@ -12,13 +12,7 @@ import time
 
 from matrix_deck import __version__
 from matrix_deck.engine import Deck
-from matrix_deck.hardware import (
-    LedMatrix,
-    assign_left_right,
-    discover_matrices,
-    friendly_connect_error,
-    warn,
-)
+from matrix_deck.hardware import assign_left_right, discover_matrices, warn
 from matrix_deck.paths import log_path
 from matrix_deck.server import make_server
 from matrix_deck.window import fetch_health, open_window, request_quit, wait_ready
@@ -36,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--simulate", action="store_true", help="Ignore hardware and only run the preview")
     p.add_argument("--left", metavar="PATH", help="Serial path for the left matrix (COM3, /dev/cu.usbmodem*, /dev/ttyACM*)")
     p.add_argument("--right", metavar="PATH", help="Serial path for the right matrix")
-    p.add_argument("--swap", action="store_true", help="Swap left/right device assignment")
+    p.add_argument("--swap", action="store_true", help="Swap left/right device assignment and remember it (same as Swap L/R in the window)")
     p.add_argument("--flip-left", action="store_true", help="Rotate the left matrix 180°")
     p.add_argument("--flip-right", action="store_true", help="Rotate the right matrix 180°")
     p.add_argument("--fps", type=float, default=20.0, help="Animation frame rate")
@@ -160,14 +154,31 @@ def main(argv: list[str] | None = None) -> int:
                 free_listen_port(args.port)
                 time.sleep(0.25)
 
-    deck = Deck(fps=args.fps, brightness=args.brightness)
+    deck = Deck(
+        fps=args.fps,
+        brightness=args.brightness,
+        flip_left=args.flip_left,
+        flip_right=args.flip_right,
+        pin_left=args.left,
+        pin_right=args.right,
+        simulate=args.simulate,
+    )
     if args.left_anim != "flappy":
         deck.set_animation("left", args.left_anim)
     if args.right_anim != "fishtank":
         deck.set_animation("right", args.right_anim)
 
+    deck.ensure_library()
+    if args.swap:
+        with deck._lock:
+            deck.swap_wells = True
+        deck.persist_library()
     if not args.simulate:
-        _attach_hardware(deck, args)
+        info = deck.attach_hardware()
+        if info["left"] not in ("simulated", "disconnected", "error"):
+            print(f"Left  ({deck.left_anim.name}): {info['left']}")
+        if info["right"] not in ("simulated", "disconnected", "error"):
+            print(f"Right ({deck.right_anim.name}): {info['right']}")
 
     deck.start()
 
@@ -220,43 +231,6 @@ def main(argv: list[str] | None = None) -> int:
             httpd.server_close()
         deck.stop()
     return 0
-
-
-def _attach_hardware(deck: Deck, args) -> None:
-    devices = discover_matrices()
-    left_dev, right_dev = assign_left_right(
-        devices,
-        left_path=args.left,
-        right_path=args.right,
-        swap=args.swap,
-    )
-    left_dev_path = left_dev.path if left_dev else None
-    right_dev_path = right_dev.path if right_dev else None
-    if args.left:
-        left_dev_path = args.left
-    if args.right:
-        right_dev_path = args.right
-
-    if left_dev_path:
-        deck.left_hw = LedMatrix(left_dev_path, flip=args.flip_left, brightness=args.brightness)
-        try:
-            deck.left_hw.connect()
-            deck.left_status = deck.left_hw.path
-            print(f"Left  ({deck.left_anim.name}): {deck.left_hw.path}")
-        except (RuntimeError, OSError) as exc:
-            warn(friendly_connect_error(left_dev_path, exc))
-            deck.left_hw = None
-            deck.left_status = "error"
-    if right_dev_path:
-        deck.right_hw = LedMatrix(right_dev_path, flip=args.flip_right, brightness=args.brightness)
-        try:
-            deck.right_hw.connect()
-            deck.right_status = deck.right_hw.path
-            print(f"Right ({deck.right_anim.name}): {deck.right_hw.path}")
-        except (RuntimeError, OSError) as exc:
-            warn(friendly_connect_error(right_dev_path, exc))
-            deck.right_hw = None
-            deck.right_status = "error"
 
 
 def _list_devices() -> int:

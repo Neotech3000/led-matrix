@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LED Matrix</title>
-    <link rel="stylesheet" href="/style.css?v=2.8.3" />
+    <link rel="stylesheet" href="/style.css?v=2.8.4" />
   </head>
   <body>
     <header class="top">
@@ -34,6 +34,12 @@
           <input id="idle-minutes" class="idle-minutes" type="number" min="1" max="240" step="1" value="10" aria-label="Idle minutes before dimming" />
           <span class="idle-minutes-label">min</span>
         </div>
+        <button type="button" class="reload-btn" id="reload-btn" title="Rediscover the LED modules and refresh this window">
+          Reload
+        </button>
+        <button type="button" class="swap-btn" id="swap-btn" title="Swap which module is Left and which is Right" aria-pressed="false">
+          Swap L/R
+        </button>
         <button type="button" class="help-btn" id="help-btn" title="Keyboard shortcuts and how the app works (?)" aria-label="Help and keyboard shortcuts" aria-haspopup="dialog" aria-controls="help-sheet">
           ?
         </button>
@@ -188,6 +194,6 @@
 
     <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
-    <script src="/app.js?v=2.8.3"></script>
+    <script src="/app.js?v=2.8.4"></script>
   </body>
 </html>

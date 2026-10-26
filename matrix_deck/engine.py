@@ -11,7 +11,7 @@ from datetime import datetime
 from matrix_deck import __version__
 from matrix_deck.anim import Animation, animation_order, catalog_revision, create_animation
 from matrix_deck.canvas import Canvas
-from matrix_deck.hardware import LedMatrix
+from matrix_deck.hardware import LedMatrix, assign_left_right, discover_matrices, friendly_connect_error, warn
 from matrix_deck.library import DEFAULT_IDLE_MINUTES, MAX_IDLE_MINUTES, MIN_IDLE_MINUTES
 from matrix_deck.library import load as load_library_file
 from matrix_deck.library import new_group_id, new_scene_id, normalize, normalize_scene
@@ -73,6 +73,12 @@ class Deck:
     idle_enabled: bool = False
     idle_minutes: int = DEFAULT_IDLE_MINUTES
     idle_dimmed: bool = False
+    swap_wells: bool = False
+    flip_left: bool = False
+    flip_right: bool = False
+    pin_left: str | None = None
+    pin_right: str | None = None
+    simulate: bool = False
     rng: random.Random = field(default_factory=random.Random)
     _due: dict[str, float] = field(default_factory=lambda: {"left": 0.0, "right": 0.0}, repr=False)
     _random_ids: list[str] | None = field(default=None, repr=False)
@@ -484,6 +490,7 @@ class Deck:
                     "left": self.left_status,
                     "right": self.right_status,
                 },
+                "swapWells": self.swap_wells,
             }
 
     def _loop(self) -> None:
@@ -543,6 +550,86 @@ class Deck:
                 pass
             hw.close()
 
+    def hardware_info(self) -> dict:
+        with self._lock:
+            return {
+                "left": self.left_status,
+                "right": self.right_status,
+                "swap": self.swap_wells,
+            }
+
+    def _close_ports(self, left, right) -> None:
+        for hw in (left, right):
+            if hw is None:
+                continue
+            try:
+                hw.close()
+            except Exception:
+                pass
+
+    def attach_hardware(self) -> dict:
+        """Close current ports, rediscover modules, and connect with the saved swap."""
+        with self._lock:
+            old_left, old_right = self.left_hw, self.right_hw
+            self.left_hw = None
+            self.right_hw = None
+            swap = self.swap_wells
+            brightness = int(self.brightness)
+            flip_l, flip_r = self.flip_left, self.flip_right
+            pin_l, pin_r = self.pin_left, self.pin_right
+            simulate = self.simulate
+        self._close_ports(old_left, old_right)
+        if simulate:
+            with self._lock:
+                self.left_status = "simulated"
+                self.right_status = "simulated"
+            return self.hardware_info()
+
+        devices = discover_matrices()
+        left_dev, right_dev = assign_left_right(devices, left_path=pin_l, right_path=pin_r, swap=swap)
+        left_path = left_dev.path if left_dev else pin_l
+        right_path = right_dev.path if right_dev else pin_r
+
+        def _open(path: str | None, flip: bool) -> tuple[LedMatrix | None, str]:
+            if not path:
+                return None, "disconnected"
+            matrix = LedMatrix(path, flip=flip, brightness=brightness)
+            try:
+                matrix.connect()
+                return matrix, matrix.path
+            except (RuntimeError, OSError) as exc:
+                warn(friendly_connect_error(path, exc))
+                return None, "error"
+
+        left_hw, left_status = _open(left_path, flip_l)
+        right_hw, right_status = _open(right_path, flip_r)
+        with self._lock:
+            self.left_hw = left_hw
+            self.right_hw = right_hw
+            self.left_status = left_status
+            self.right_status = right_status
+            self._pushed_brightness = -1
+        return self.hardware_info()
+
+    def reload_hardware(self) -> dict:
+        """Rediscover USB modules after a freeze, unplug, or moving the wells."""
+        self.touch()
+        return self.attach_hardware()
+
+    def toggle_swap(self) -> dict:
+        """Flip which physical module is Left and which is Right, and remember it."""
+        self.touch()
+        with self._lock:
+            self.swap_wells = not self.swap_wells
+            have_hw = self.left_hw is not None or self.right_hw is not None
+            if have_hw:
+                self.left_hw, self.right_hw = self.right_hw, self.left_hw
+                self.left_status, self.right_status = self.right_status, self.left_status
+        self.persist_library()
+        if not have_hw and not self.simulate:
+            return self.attach_hardware()
+        return self.hardware_info()
+
     # ----- library -----------------------------------------------------------
 
     def ensure_library(self) -> None:
@@ -561,6 +648,7 @@ class Deck:
             cfg = data["settings"]
             self.idle_enabled = bool(cfg["idleEnabled"])
             self.idle_minutes = int(cfg["idleMinutes"])
+            self.swap_wells = bool(cfg.get("swapWells", False))
         self._library_loaded = True
 
     def load_library(self) -> dict:
@@ -580,6 +668,7 @@ class Deck:
             "settings": {
                 "idleEnabled": self.idle_enabled,
                 "idleMinutes": self.idle_minutes,
+                "swapWells": self.swap_wells,
             },
         }
 

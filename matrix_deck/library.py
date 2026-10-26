@@ -27,6 +27,7 @@ def default_settings() -> dict:
     return {
         "idleEnabled": False,
         "idleMinutes": DEFAULT_IDLE_MINUTES,
+        "swapWells": False,
     }
 
 
@@ -111,6 +112,7 @@ def normalize_settings(raw) -> dict:
     except (TypeError, ValueError):
         minutes = DEFAULT_IDLE_MINUTES
     out["idleMinutes"] = max(MIN_IDLE_MINUTES, min(MAX_IDLE_MINUTES, minutes))
+    out["swapWells"] = bool(raw.get("swapWells", False))
     return out
 
 
